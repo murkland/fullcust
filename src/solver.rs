@@ -1,17 +1,10 @@
 mod candidates;
 mod placement;
 
-#[derive(Debug, Clone, PartialEq, Copy)]
-pub enum EffectBugRequirement {
-    BugOnly,
-    BuglessOnly,
-    Always,
-}
-
 #[derive(Debug, Clone)]
 pub struct Effect {
-    pub delta: usize,
-    pub bug_requirement: EffectBugRequirement,
+    pub bugless: usize,
+    pub bugged: usize,
 }
 
 /// A part is a NaviCust part.
@@ -21,7 +14,7 @@ pub struct Part {
     pub must_be_on_command_line: bool,
 
     /// Effects.
-    pub effects: Vec<Option<Effect>>,
+    pub effects: Vec<Effect>,
 
     /// The shapes a part can be.
     pub shapes: Vec<placement::Shape>,
@@ -43,31 +36,26 @@ pub struct Environment {
     pub command_line_row: usize,
 }
 
-/// A variable constraint is a requirement to be solved.
-#[derive(Debug, Clone)]
-pub struct Constraint {
-    /// Target value for the variable. This will always be honored.
-    pub target: usize,
-
-    /// Cap value for the variable. The solver will not attempt to find all solutions up to the cap, it will only reject solutions greater than the cap.
-    pub cap: usize,
-}
-
 type Solution = Vec<placement::Placement>;
 
 /// Solve.
 pub fn solve<'a>(
     env: &'a Environment,
-    constraints: &'a [Constraint],
+    constraints: &'a [candidates::Constraint],
     want_colorbug: Option<bool>,
 ) -> impl Iterator<Item = Solution> + 'a {
-    let candidates = candidates::gather(&env.parts, constraints);
+    let candidate_parts = env
+        .parts
+        .iter()
+        .map(|p| p.effects.as_slice())
+        .collect::<Vec<_>>();
 
     // Initialize a memory map.
     let memory_map = placement::MemoryMap::new(env.size);
 
     genawaiter::rc::gen!({
-        for candidate in candidates {
+        for candidate in candidates::gather(&candidate_parts, env.size.0 * env.size.1, constraints)
+        {
             //
         }
     })

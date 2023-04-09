@@ -9,18 +9,29 @@ struct Assignment {
     worst_case: usize,
 }
 
+/// A variable constraint is a requirement to be solved.
+#[derive(Debug, Clone)]
+pub struct Constraint {
+    /// Target value for the variable. This will always be honored.
+    pub target: usize,
+
+    /// Cap value for the variable. The solver will not attempt to find all solutions up to the limit, it will only reject solutions greater than the limit.
+    pub limit: usize,
+}
+
 /// Given a list of variables, parts, and constraints, find candidate sets of parts.
 ///
-/// We don't respect the cap here, because it is subject to arrangement.
+/// We don't respect the limit here, because it is subject to arrangement.
 pub fn gather<'a>(
-    parts: &'a [super::Part],
-    constraints: &'a [super::Constraint],
+    parts: &'a [&'a [super::Effect]],
+    part_limit: usize,
+    constraints: &'a [Constraint],
 ) -> impl Iterator<Item = Vec<usize>> + 'a {
     let parts_by_variable = {
         let mut parts_by_variable_map = std::collections::HashMap::new();
-        for (i, part) in parts.iter().enumerate() {
-            for (variable_index, effect) in part.effects.iter().enumerate() {
-                if effect.is_none() {
+        for (i, part_effects) in parts.iter().enumerate() {
+            for (variable_index, effect) in part_effects.iter().enumerate() {
+                if effect.bugged == 0 && effect.bugless == 0 {
                     continue;
                 }
 
@@ -31,19 +42,29 @@ pub fn gather<'a>(
             }
         }
 
-        (0..constraints.len())
+        let mut parts_by_variable = (0..constraints.len())
             .map(|i| parts_by_variable_map.remove(&i).unwrap_or_else(|| vec![]))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        for (i, part_indexes) in parts_by_variable.iter_mut().enumerate() {
+            part_indexes.sort_unstable_by_key(|part_index| {
+                let effect = &parts[*part_index][i];
+                std::cmp::Reverse(std::cmp::min(effect.bugged, effect.bugless))
+            });
+        }
+
+        parts_by_variable
     };
 
     fn inner<'a>(
-        parts: &'a [super::Part],
+        parts: &'a [&'a [super::Effect]],
+        part_limit: usize,
         parts_by_variable: std::rc::Rc<Vec<Vec<usize>>>,
-        assignments: Vec<(&'a super::Constraint, Assignment)>,
+        assignments: Vec<(&'a Constraint, Assignment)>,
     ) -> impl Iterator<Item = Vec<usize>> + 'a {
         genawaiter::rc::gen!({
             let variable_index = if let Some(i) = assignments.iter().position(|(c, assignment)| {
-                c.target > assignment.worst_case && c.cap > assignment.guaranteed
+                assignment.worst_case < c.target && assignment.guaranteed < c.limit
             }) {
                 i
             } else {
@@ -51,21 +72,30 @@ pub fn gather<'a>(
                 return;
             };
 
-            for part_idx in parts_by_variable[variable_index].iter() {
-                let part = &parts[*part_idx];
+            if part_limit == 0 {
+                return;
+            }
+
+            'part_loop: for part_idx in parts_by_variable[variable_index].iter() {
+                let part_effects = &parts[*part_idx];
 
                 let mut assignments = assignments.clone();
-                for ((c, assignment), effect) in assignments.iter_mut().zip(part.effects.iter()) {
-                    if let Some(effect) = effect {
-                        assignment.worst_case += effect.delta;
-                        if effect.bug_requirement == super::EffectBugRequirement::Always {
-                            assignment.guaranteed += effect.delta;
-                        }
+                for ((c, assignment), effect) in assignments.iter_mut().zip(part_effects.iter()) {
+                    assignment.guaranteed += std::cmp::min(effect.bugless, effect.bugged);
+                    if assignment.guaranteed > c.limit {
+                        continue 'part_loop;
                     }
+
+                    assignment.worst_case += std::cmp::max(effect.bugless, effect.bugged);
                 }
 
-                let part_sets =
-                    inner(parts, parts_by_variable.clone(), assignments).collect::<Vec<_>>();
+                let part_sets = inner(
+                    parts,
+                    part_limit - 1,
+                    parts_by_variable.clone(),
+                    assignments,
+                )
+                .collect::<Vec<_>>();
 
                 for parts in part_sets.iter() {
                     let mut parts = parts.clone();
@@ -79,6 +109,7 @@ pub fn gather<'a>(
 
     inner(
         parts,
+        part_limit,
         std::rc::Rc::new(parts_by_variable),
         constraints
             .iter()
@@ -100,70 +131,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_candidate_part_sets() {
+    fn test_gather() {
         assert_eq!(
             gather(
                 &[
                     // Super Armor
-                    super::super::Part {
-                        must_be_on_command_line: true,
-                        effects: vec![
-                            Some(super::super::Effect {
-                                bug_requirement: super::super::EffectBugRequirement::BuglessOnly,
-                                delta: 1
-                            }),
-                            None
-                        ],
-                        shapes: vec![super::super::placement::Shape {
-                            color: 0,
-                            mask: super::super::placement::Mask::new(
-                                (7, 7),
-                                vec![
-                                    true, false, false, false, false, false, false, //
-                                    true, true, false, false, false, false, false, //
-                                    true, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                ],
-                            )
-                            .unwrap(),
-                        }],
-                    },
+                    &[
+                        super::super::Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                        super::super::Effect {
+                            bugless: 0,
+                            bugged: 0
+                        }
+                    ],
                     // HP +100
-                    super::super::Part {
-                        must_be_on_command_line: false,
-                        effects: vec![
-                            None,
-                            Some(super::super::Effect {
-                                bug_requirement: super::super::EffectBugRequirement::Always,
-                                delta: 100
-                            })
-                        ],
-                        shapes: vec![super::super::placement::Shape {
-                            color: 1,
-                            mask: super::super::placement::Mask::new(
-                                (7, 7),
-                                vec![
-                                    true, true, false, false, false, false, false, //
-                                    true, true, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                ],
-                            )
-                            .unwrap(),
-                        }],
-                    },
+                    &[
+                        super::super::Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                        super::super::Effect {
+                            bugless: 100,
+                            bugged: 100
+                        }
+                    ],
                 ],
+                4,
                 &[
-                    super::super::Constraint { target: 1, cap: 1 },
-                    super::super::Constraint {
+                    Constraint {
+                        target: 1,
+                        limit: 1
+                    },
+                    Constraint {
                         target: 300,
-                        cap: 300
+                        limit: 300
                     }
                 ],
             )
@@ -173,75 +176,96 @@ mod tests {
     }
 
     #[test]
-    fn test_find_candidate_part_sets_inexact() {
+    fn test_gather_inexact() {
         assert_eq!(
             gather(
                 &[
                     // Super Armor
-                    super::super::Part {
-                        must_be_on_command_line: true,
-                        effects: vec![
-                            Some(super::super::Effect {
-                                bug_requirement: super::super::EffectBugRequirement::BuglessOnly,
-                                delta: 1
-                            }),
-                            None
-                        ],
-                        shapes: vec![super::super::placement::Shape {
-                            color: 0,
-                            mask: super::super::placement::Mask::new(
-                                (7, 7),
-                                vec![
-                                    true, false, false, false, false, false, false, //
-                                    true, true, false, false, false, false, false, //
-                                    true, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                ],
-                            )
-                            .unwrap(),
-                        }],
-                    },
+                    &[
+                        super::super::Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                        super::super::Effect {
+                            bugless: 0,
+                            bugged: 0
+                        }
+                    ],
                     // HP +100
-                    super::super::Part {
-                        must_be_on_command_line: false,
-                        effects: vec![
-                            None,
-                            Some(super::super::Effect {
-                                bug_requirement: super::super::EffectBugRequirement::Always,
-                                delta: 100
-                            })
-                        ],
-                        shapes: vec![super::super::placement::Shape {
-                            color: 1,
-                            mask: super::super::placement::Mask::new(
-                                (7, 7),
-                                vec![
-                                    true, true, false, false, false, false, false, //
-                                    true, true, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                    false, false, false, false, false, false, false, //
-                                ],
-                            )
-                            .unwrap(),
-                        }],
-                    },
+                    &[
+                        super::super::Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                        super::super::Effect {
+                            bugless: 100,
+                            bugged: 100
+                        }
+                    ],
                 ],
+                10,
                 &[
-                    super::super::Constraint { target: 1, cap: 1 },
-                    super::super::Constraint {
+                    Constraint {
+                        target: 1,
+                        limit: 1
+                    },
+                    Constraint {
                         target: 350,
-                        cap: 350
+                        limit: 500
                     }
                 ],
             )
             .collect::<Vec<_>>(),
             vec![vec![1, 4]]
+        );
+    }
+
+    #[test]
+    fn test_gather_limit() {
+        assert_eq!(
+            gather(
+                &[
+                    // HP +100
+                    &[super::super::Effect {
+                        bugless: 100,
+                        bugged: 100
+                    }],
+                ],
+                10,
+                &[Constraint {
+                    target: 50,
+                    limit: 50
+                }],
+            )
+            .collect::<Vec<_>>(),
+            Vec::<Vec<_>>::new()
+        );
+    }
+
+    #[test]
+    fn test_gather_largest_first() {
+        assert_eq!(
+            gather(
+                &[
+                    // HP +50
+                    &[super::super::Effect {
+                        bugless: 50,
+                        bugged: 50
+                    }],
+                    // HP +100
+                    &[super::super::Effect {
+                        bugless: 100,
+                        bugged: 100
+                    }],
+                ],
+                10,
+                &[Constraint {
+                    target: 100,
+                    limit: 100
+                }],
+            )
+            .collect::<Vec<_>>(),
+            vec![vec![0, 1], vec![2, 0]],
         );
     }
 }
