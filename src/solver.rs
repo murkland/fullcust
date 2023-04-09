@@ -1,20 +1,13 @@
 use genawaiter::yield_;
 
-/// A value is a positive integer value that can also be infinite.
-#[derive(Debug, Clone, Copy)]
-pub enum Value {
-    Finite(usize),
-    Infinity,
-}
-
-/// An effect is an alteration of an attribute. Each NaviCust part may impart effects (e.g. HP+, enable Super Armor, etc.)
+/// An effect is an alteration of a variable. Each NaviCust part may impart effects (e.g. HP+, enable Super Armor, etc.)
 #[derive(Debug, Clone)]
 pub struct Effect {
-    /// The attribute to alter.
-    pub attribute_index: usize,
+    /// The variable to add to.
+    pub variable_index: usize,
 
-    /// The amount to alter the attribute by. If the attribute is boolean, this should be Infinity.
-    pub delta: Value,
+    /// The amount to alter the variable by. If the variable is boolean, this should be 1.
+    pub add: usize,
 }
 
 /// A mask represents the shape of a NaviCust part.
@@ -81,57 +74,31 @@ pub struct Environment {
     pub command_line_row: usize,
 }
 
-/// A attribute constraint is a requirement to be solved.
+/// A variable constraint is a requirement to be solved.
 #[derive(Debug, Clone)]
-pub struct AttributeConstraint {
-    /// Minimum value for the attribute.
-    pub min: Value,
+pub struct Constraint {
+    /// Minimum value for the variable.
+    pub min: usize,
 
-    /// Maximum value for the attribute.
-    pub max: Value,
+    /// Maximum value for the variable.
+    pub max: usize,
 }
 
-impl AttributeConstraint {
-    pub fn dont_care() -> Self {
-        AttributeConstraint {
-            min: Value::Finite(0),
-            max: Value::Infinity,
-        }
-    }
-
+impl Constraint {
     pub fn true_() -> Self {
-        AttributeConstraint {
-            min: Value::Infinity,
-            max: Value::Infinity,
-        }
+        Constraint { min: 1, max: 1 }
     }
 
     pub fn false_() -> Self {
-        AttributeConstraint {
-            min: Value::Finite(0),
-            max: Value::Finite(0),
-        }
+        Constraint { min: 0, max: 0 }
     }
 
     pub fn at_most(n: usize) -> Self {
-        AttributeConstraint {
-            min: Value::Finite(0),
-            max: Value::Finite(n),
-        }
-    }
-
-    pub fn at_least(n: usize) -> Self {
-        AttributeConstraint {
-            min: Value::Finite(n),
-            max: Value::Infinity,
-        }
+        Constraint { min: 0, max: n }
     }
 
     pub fn between(n: usize, m: usize) -> Self {
-        AttributeConstraint {
-            min: Value::Finite(n),
-            max: Value::Finite(m),
-        }
+        Constraint { min: 0, max: m }
     }
 }
 
@@ -151,13 +118,7 @@ pub struct Placement {
 type Solution = Vec<Placement>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("mismatched attribute constraints: expected {num_attributes} got {num_constraints}")]
-    MismatchedAttributeConstraints {
-        num_attributes: usize,
-        num_constraints: usize,
-    },
-}
+pub enum Error {}
 
 #[derive(thiserror::Error, Debug)]
 enum PlaceError {
@@ -246,21 +207,18 @@ impl MemoryMap {
     }
 }
 
-/// Given a list of attributes, parts, and constraints, find candidate sets of parts.
+/// Given a list of variables, parts, and constraints, find candidate sets of parts.
 fn find_candidate_part_sets<'a>(
     parts: &'a [Part],
-    constraints: &'a [AttributeConstraint],
+    constraints: &'a [Option<Constraint>],
 ) -> Result<impl Iterator<Item = std::collections::HashMap<usize, usize>> + 'a, Error> {
-    Ok(genawaiter::rc::gen!({
-        //
-    })
-    .into_iter())
+    Ok(genawaiter::rc::gen!({}).into_iter())
 }
 
 /// Solve.
 pub fn solve<'a>(
     env: &'a Environment,
-    constraints: &'a [AttributeConstraint],
+    constraints: &'a [Option<Constraint>],
     want_colorbug: Option<bool>,
 ) -> Result<impl Iterator<Item = Solution> + 'a, Error> {
     let candidates = find_candidate_part_sets(&env.parts, constraints)?;
@@ -591,8 +549,8 @@ mod tests {
                 Part {
                     must_be_on_command_line: true,
                     unbugged_effects: vec![Effect {
-                        attribute_index: 0,
-                        delta: Value::Infinity,
+                        variable: 0,
+                        delta: 1,
                     }],
                     bugged_effects: vec![],
                     shapes: vec![Shape {
@@ -616,8 +574,8 @@ mod tests {
                 Part {
                     must_be_on_command_line: false,
                     unbugged_effects: vec![Effect {
-                        attribute_index: 1,
-                        delta: Value::Finite(100),
+                        variable: 1,
+                        delta: 100,
                     }],
                     bugged_effects: vec![],
                     shapes: vec![Shape {
@@ -643,16 +601,7 @@ mod tests {
             command_line_row: 3,
         };
 
-        for solution in solve(
-            &env,
-            &[
-                AttributeConstraint::dont_care(),
-                AttributeConstraint::at_least(100),
-            ],
-            None,
-        )
-        .unwrap()
-        {
+        for solution in solve(&env, &[None, Some(Constraint::at_most(100))], None).unwrap() {
             println!("{:?}", solution);
         }
     }
