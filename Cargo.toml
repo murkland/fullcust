@@ -17,6 +17,7 @@ wasm-log = "0.3"
 anyhow = "1"
 ndarray = "0.15"
 genawaiter = "0.99"
+thiserror = "1"
 
 [target."cfg(debug_assertions)".dependencies]
 console_error_panic_hook = "0.1.5"

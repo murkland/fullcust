@@ -2,19 +2,12 @@ use genawaiter::yield_;
 
 /// An attribute kind determines what arithmetic is performed on an attribute.
 #[derive(Debug, Clone, Copy)]
-pub enum AttributeKind {
+pub enum Attribute {
     /// Boolean attributes will saturate to |true| on addition.
     Boolean,
 
     /// Integer attributes will not saturate.
     Integer,
-}
-
-/// An attribute is an effect that can be applied, e.g. HP+, enable Super Armor, etc.
-#[derive(Debug, Clone)]
-pub struct Attribute {
-    /// The kind of the attribute.
-    pub kind: AttributeKind,
 }
 
 /// An effect is an alteration of an attribute. Each NaviCust part may impart effects (e.g. HP+, enable Super Armor, etc.)
@@ -52,8 +45,8 @@ impl Layout {
 /// A part is a NaviCust part.
 #[derive(Debug, Clone)]
 pub struct Part {
-    /// An adjacency group is a NaviCust part's color.
-    pub adjacency_group: usize,
+    /// A NaviCust part's color.
+    pub color: usize,
 
     /// The NaviCust part must be placed on the command line for its unbugged effects to be active.
     pub must_be_on_command_line: bool,
@@ -97,6 +90,50 @@ pub struct AttributeConstraint {
     pub max: Option<usize>,
 }
 
+impl AttributeConstraint {
+    pub fn dont_care() -> Self {
+        AttributeConstraint {
+            min: None,
+            max: None,
+        }
+    }
+
+    pub fn true_() -> Self {
+        AttributeConstraint {
+            min: Some(1),
+            max: Some(1),
+        }
+    }
+
+    pub fn false_() -> Self {
+        AttributeConstraint {
+            min: Some(0),
+            max: Some(0),
+        }
+    }
+
+    pub fn at_most(n: usize) -> Self {
+        AttributeConstraint {
+            min: None,
+            max: Some(n),
+        }
+    }
+
+    pub fn at_least(n: usize) -> Self {
+        AttributeConstraint {
+            min: Some(n),
+            max: None,
+        }
+    }
+
+    pub fn between(n: usize, m: usize) -> Self {
+        AttributeConstraint {
+            min: Some(n),
+            max: Some(m),
+        }
+    }
+}
+
 /// A placement determines where to place a NaviCust part.
 #[derive(Debug, Clone)]
 pub struct Placement {
@@ -112,16 +149,32 @@ pub struct Placement {
 
 type Solution = Vec<Placement>;
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("mismatched attribute constraints: expected {attributes} got {constraints}")]
+    MismatchedAttributeConstraints {
+        attributes: usize,
+        constraints: usize,
+    },
+}
+
 /// Solve.
 pub fn solve(
-    env: Environment,
-    attribute_constraints: &[AttributeConstraint],
+    env: &Environment,
+    constraints: &[AttributeConstraint],
     want_colorbug: Option<bool>,
-) -> impl Iterator<Item = Solution> {
-    genawaiter::rc::gen!({
+) -> Result<impl Iterator<Item = Solution>, Error> {
+    if constraints.len() != env.attributes.len() {
+        return Err(Error::MismatchedAttributeConstraints {
+            attributes: env.attributes.len(),
+            constraints: constraints.len(),
+        });
+    }
+
+    Ok(genawaiter::rc::gen!({
         //
     })
-    .into_iter()
+    .into_iter())
 }
 
 #[cfg(test)]
@@ -160,5 +213,79 @@ mod tests {
             )
             .unwrap()
         )
+    }
+
+    #[test]
+    fn test_basic_solve() {
+        let env = Environment {
+            attributes: vec![
+                Attribute::Boolean, // Super Armor
+                Attribute::Integer, // HP
+            ],
+            part: vec![
+                // Super Armor
+                Part {
+                    color: 0,
+                    must_be_on_command_line: true,
+                    unbugged_effects: vec![Effect {
+                        attribute_index: 0,
+                        delta: 1,
+                    }],
+                    bugged_effects: vec![],
+                    layout: Layout::new(
+                        (7, 7),
+                        vec![
+                            true, false, false, false, false, false, false, //
+                            true, true, false, false, false, false, false, //
+                            true, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                        ],
+                    )
+                    .unwrap(),
+                },
+                // HP +100
+                Part {
+                    color: 1,
+                    must_be_on_command_line: false,
+                    unbugged_effects: vec![Effect {
+                        attribute_index: 1,
+                        delta: 100,
+                    }],
+                    bugged_effects: vec![],
+                    layout: Layout::new(
+                        (7, 7),
+                        vec![
+                            true, true, false, false, false, false, false, //
+                            true, true, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                            false, false, false, false, false, false, false, //
+                        ],
+                    )
+                    .unwrap(),
+                },
+            ],
+            size: (7, 7),
+            has_oob: true,
+            command_line_row: 3,
+        };
+
+        for solution in solve(
+            &env,
+            &[
+                AttributeConstraint::dont_care(),
+                AttributeConstraint::at_least(100),
+            ],
+            None,
+        )
+        .unwrap()
+        {
+            println!("{:?}", solution);
+        }
     }
 }
