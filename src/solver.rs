@@ -20,25 +20,25 @@ pub struct Effect {
     pub delta: usize,
 }
 
-/// A layout represents the shape of a NaviCust part.
+/// A mask represents the shape of a NaviCust part.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Layout {
-    mask: ndarray::Array2<bool>,
+pub struct Mask {
+    repr: ndarray::Array2<bool>,
 }
 
-impl Layout {
+impl Mask {
     pub fn new(shape: (usize, usize), mask: Vec<bool>) -> Result<Self, ndarray::ShapeError> {
-        Ok(Layout {
-            mask: ndarray::Array2::from_shape_vec(shape, mask)?,
+        Ok(Mask {
+            repr: ndarray::Array2::from_shape_vec(shape, mask)?,
         })
     }
 
-    pub fn rot90(self) -> Self {
-        let mut mask = self.mask.reversed_axes().as_standard_layout().into_owned();
+    fn rot90(self) -> Self {
+        let mut mask = self.repr.reversed_axes().as_standard_layout().into_owned();
         for row in mask.rows_mut() {
             row.into_slice().unwrap().reverse();
         }
-        Layout { mask }
+        Mask { repr: mask }
     }
 }
 
@@ -57,8 +57,8 @@ pub struct Part {
     /// Effects that occur when the NaviCust part is bugged. If the NaviCust part is not required to be on the command line, unbugged effects should be repeated here.
     pub bugged_effects: Vec<Effect>,
 
-    /// The layout of the part.
-    pub layout: Layout,
+    /// The mask of the part.
+    pub mask: Mask,
 }
 
 /// An environment encapsulates all the starting parameters for the solver.
@@ -135,13 +135,13 @@ impl AttributeConstraint {
 }
 
 /// A placement determines where to place a NaviCust part.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Placement {
     /// Which part to place.
     pub part_index: usize,
 
     /// Where to place the part.
-    pub position: (usize, usize),
+    pub position: (isize, isize),
 
     /// How many 90 degree rotations are required.
     pub rotation: usize,
@@ -151,11 +151,98 @@ type Solution = Vec<Placement>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("mismatched attribute constraints: expected {attributes} got {constraints}")]
+    #[error("mismatched attribute constraints: expected {num_attributes} got {num_constraints}")]
     MismatchedAttributeConstraints {
-        attributes: usize,
-        constraints: usize,
+        num_attributes: usize,
+        num_constraints: usize,
     },
+}
+
+#[derive(thiserror::Error, Debug)]
+enum PlaceError {
+    #[error("mismatching shapes: expected {memory_map_shape:?} got {mask_shape:?}")]
+    ShapesMismatched {
+        memory_map_shape: (usize, usize),
+        mask_shape: (usize, usize),
+    },
+
+    #[error("destination clobbered")]
+    DestinationClobbered,
+
+    #[error("source clipped")]
+    SourceClipped,
+}
+
+#[derive(Clone, Debug)]
+struct MemoryMap {
+    repr: ndarray::Array2<Option<usize>>,
+}
+
+impl MemoryMap {
+    fn new(size: (usize, usize)) -> Self {
+        Self {
+            repr: ndarray::Array2::from_elem(size, None),
+        }
+    }
+
+    fn place(mut self, mask: &Mask, placement: Placement) -> Result<Self, PlaceError> {
+        if mask.repr.shape() != self.repr.shape() {
+            return Err(PlaceError::ShapesMismatched {
+                memory_map_shape: self.repr.dim(),
+                mask_shape: mask.repr.dim(),
+            });
+        }
+
+        let (w, h) = self.repr.dim();
+
+        let mut mask = std::borrow::Cow::Borrowed(mask);
+        for _ in 0..placement.rotation {
+            mask = std::borrow::Cow::Owned(mask.into_owned().rot90());
+        }
+
+        let (src_x, dst_x) = if placement.position.0 < 0 {
+            (-placement.position.0 as usize, 0)
+        } else {
+            (0, placement.position.0 as usize)
+        };
+
+        let (src_y, dst_y) = if placement.position.1 < 0 {
+            (-placement.position.1 as usize, 0)
+        } else {
+            (0, placement.position.1 as usize)
+        };
+
+        // Validate that our mask isn't being weirdly clipped.
+        for (y, row) in mask.repr.rows().into_iter().enumerate() {
+            for (x, &v) in row.into_iter().enumerate() {
+                if x >= src_x && y >= src_y && x < w - dst_x && y < h - dst_y {
+                    continue;
+                }
+
+                if v {
+                    return Err(PlaceError::SourceClipped);
+                }
+            }
+        }
+
+        for (src_row, dst_row) in std::iter::zip(
+            mask.repr.slice(ndarray::s![src_y.., src_x..]).rows(),
+            self.repr
+                .slice_mut(ndarray::s![dst_y.., dst_x..])
+                .rows_mut(),
+        ) {
+            for (src, dst) in std::iter::zip(src_row, dst_row) {
+                if *src {
+                    if dst.is_some() {
+                        return Err(PlaceError::DestinationClobbered);
+                    }
+                    *dst = Some(placement.part_index);
+                }
+            }
+        }
+
+        Ok(self)
+    }
 }
 
 /// Solve.
@@ -166,10 +253,13 @@ pub fn solve(
 ) -> Result<impl Iterator<Item = Solution>, Error> {
     if constraints.len() != env.attributes.len() {
         return Err(Error::MismatchedAttributeConstraints {
-            attributes: env.attributes.len(),
-            constraints: constraints.len(),
+            num_attributes: env.attributes.len(),
+            num_constraints: constraints.len(),
         });
     }
+
+    // Initialize a memory map.
+    let memory_map = MemoryMap::new(env.size);
 
     Ok(genawaiter::rc::gen!({
         //
@@ -182,8 +272,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_layout_rot90() {
-        let layout = Layout::new(
+    fn test_mask_rot90() {
+        let mask = Mask::new(
             (7, 7),
             vec![
                 true, true, true, true, true, false, false, //
@@ -196,10 +286,10 @@ mod tests {
             ],
         )
         .unwrap();
-        let layout = layout.rot90();
+        let mask = mask.rot90();
         assert_eq!(
-            layout,
-            Layout::new(
+            mask,
+            Mask::new(
                 (7, 7),
                 vec![
                     true, true, true, true, true, true, true, //
@@ -213,6 +303,275 @@ mod tests {
             )
             .unwrap()
         )
+    }
+
+    #[test]
+    fn test_memory_map_place() {
+        let memory_map = MemoryMap::new((7, 7));
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Some(0), None, None, None, None, None, None,
+            Some(0), Some(0), None, None, None, None, None,
+            Some(0), None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+        ]).unwrap();
+
+        assert_eq!(
+            memory_map
+                .place(
+                    &super_armor,
+                    Placement {
+                        part_index: 0,
+                        position: (0, 0),
+                        rotation: 0,
+                    },
+                )
+                .unwrap()
+                .repr,
+            expected_repr
+        );
+    }
+
+    #[test]
+    fn test_memory_map_place_rot() {
+        let memory_map = MemoryMap::new((7, 7));
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            None, None, None, None, Some(0), Some(0), Some(0),
+            None, None, None, None, None, Some(0), None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+        ]).unwrap();
+
+        assert_eq!(
+            memory_map
+                .place(
+                    &super_armor,
+                    Placement {
+                        part_index: 0,
+                        position: (0, 0),
+                        rotation: 1,
+                    },
+                )
+                .unwrap()
+                .repr,
+            expected_repr
+        );
+    }
+
+    #[test]
+    fn test_memory_map_place_nonzero_pos() {
+        let memory_map = MemoryMap::new((7, 7));
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            None, Some(0), None, None, None, None, None,
+            None, Some(0), Some(0), None, None, None, None,
+            None, Some(0), None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+        ]).unwrap();
+
+        assert_eq!(
+            memory_map
+                .place(
+                    &super_armor,
+                    Placement {
+                        part_index: 0,
+                        position: (1, 0),
+                        rotation: 0,
+                    },
+                )
+                .unwrap()
+                .repr,
+            expected_repr
+        );
+    }
+
+    #[test]
+    fn test_memory_map_place_neg_pos() {
+        let memory_map = MemoryMap::new((7, 7));
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                false, true, false, false, false, false, false, //
+                false, true, true, false, false, false, false, //
+                false, true, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Some(0), None, None, None, None, None, None,
+            Some(0), Some(0), None, None, None, None, None,
+            Some(0), None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+        ]).unwrap();
+
+        assert_eq!(
+            memory_map
+                .place(
+                    &super_armor,
+                    Placement {
+                        part_index: 0,
+                        position: (-1, 0),
+                        rotation: 0,
+                    },
+                )
+                .unwrap()
+                .repr,
+            expected_repr
+        );
+    }
+
+    #[test]
+    fn test_memory_map_place_source_clipped() {
+        let memory_map = MemoryMap::new((7, 7));
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_matches::assert_matches!(
+            memory_map.place(
+                &super_armor,
+                Placement {
+                    part_index: 0,
+                    position: (-1, -1),
+                    rotation: 0,
+                },
+            ),
+            Err(PlaceError::SourceClipped)
+        );
+    }
+
+    #[test]
+    fn test_memory_map_place_source_clipped_other_side() {
+        let memory_map = MemoryMap::new((7, 7));
+
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_matches::assert_matches!(
+            memory_map.place(
+                &super_armor,
+                Placement {
+                    part_index: 0,
+                    position: (6, 0),
+                    rotation: 0,
+                },
+            ),
+            Err(PlaceError::SourceClipped)
+        );
+    }
+
+    #[test]
+    fn test_memory_map_destination_clobbered() {
+        let mut memory_map = MemoryMap::new((7, 7));
+        memory_map.repr[[0, 0]] = Some(2);
+
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_matches::assert_matches!(
+            memory_map.place(
+                &super_armor,
+                Placement {
+                    part_index: 0,
+                    position: (0, 0),
+                    rotation: 0,
+                },
+            ),
+            Err(PlaceError::DestinationClobbered)
+        );
     }
 
     #[test]
@@ -232,7 +591,7 @@ mod tests {
                         delta: 1,
                     }],
                     bugged_effects: vec![],
-                    layout: Layout::new(
+                    mask: Mask::new(
                         (7, 7),
                         vec![
                             true, false, false, false, false, false, false, //
@@ -255,7 +614,7 @@ mod tests {
                         delta: 100,
                     }],
                     bugged_effects: vec![],
-                    layout: Layout::new(
+                    mask: Mask::new(
                         (7, 7),
                         vec![
                             true, true, false, false, false, false, false, //
