@@ -77,6 +77,10 @@ impl Tableau {
         }
     }
 
+    pub fn placements(&self) -> &[Placement] {
+        &self.placements
+    }
+
     pub fn place(mut self, mask: &Mask, placement: Placement) -> Result<Self, PlaceError> {
         if mask.repr.shape() != self.arr.shape() {
             return Err(PlaceError::ShapesMismatched {
