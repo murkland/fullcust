@@ -50,12 +50,6 @@ pub struct Placement {
 
 #[derive(thiserror::Error, Debug)]
 enum PlaceError {
-    #[error("mismatching shapes: expected {tableau_shape:?} got {mask_shape:?}")]
-    ShapesMismatched {
-        tableau_shape: (usize, usize),
-        mask_shape: (usize, usize),
-    },
-
     #[error("destination clobbered")]
     DestinationClobbered,
 
@@ -82,16 +76,9 @@ impl Tableau {
     }
 
     pub fn place(mut self, mask: &Mask, placement: Placement) -> Result<Self, PlaceError> {
-        if mask.repr.shape() != self.arr.shape() {
-            return Err(PlaceError::ShapesMismatched {
-                tableau_shape: self.arr.dim(),
-                mask_shape: mask.repr.dim(),
-            });
-        }
-
         let placement_index = self.placements.len();
 
-        let (w, h) = self.arr.dim();
+        let (h, w) = self.arr.dim();
 
         let mut mask = std::borrow::Cow::Borrowed(mask);
         for _ in 0..placement.loc.rotation {
@@ -207,6 +194,50 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Some(0), None, None, None, None, None, None,
+            Some(0), Some(0), None, None, None, None, None,
+            Some(0), None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
+        ]).unwrap();
+
+        assert_eq!(
+            tableau
+                .place(
+                    &super_armor,
+                    Placement {
+                        loc: Location {
+                            position: (0, 0),
+                            rotation: 0,
+                        },
+                        part_index: 0,
+                        part_shape_index: 0,
+                        color: 0
+                    },
+                )
+                .unwrap()
+                .arr,
+            expected_repr
+        );
+    }
+
+    #[test]
+    fn test_tableau_place_different_sizes() {
+        let tableau = Tableau::new((7, 7));
+        let super_armor = Mask::new(
+            (3, 2),
+            vec![
+                true, false, //
+                true, true, //
+                true, false, //
             ],
         )
         .unwrap();
