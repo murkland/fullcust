@@ -57,6 +57,7 @@ dependencies = [
  "console_error_panic_hook",
  "futures",
  "genawaiter",
+ "infinitable",
  "js-sys",
  "log",
  "ndarray",
@@ -103,6 +104,12 @@ dependencies = [
  "quote 1.0.26",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "infinitable"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d554cde875e4c7993db1c04d0e00fa6c7e273bf014e114493d456e513981eaae"
 
 [[package]]
 name = "js-sys"
