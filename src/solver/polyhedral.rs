@@ -4,16 +4,6 @@
 
 use genawaiter::yield_;
 
-/// An assignment is an assignment to a variable in the solver.
-#[derive(Debug, Clone)]
-struct Assignment {
-    /// A guaranteed assignment is independent of placement: that is, the assignment applies bugged or bugless. This is the lower bound.
-    guaranteed: usize,
-
-    /// A worst case assignment is dependent of placement: it may or may not be applied. This is the upper bound.
-    worst_case: usize,
-}
-
 #[derive(Debug, Clone)]
 pub struct Effect {
     pub bugless: usize,
@@ -66,6 +56,16 @@ pub fn solve<'a>(
 
         parts_by_variable
     };
+
+    /// An assignment is an assignment to a variable in the solver.
+    #[derive(Debug, Clone)]
+    struct Assignment {
+        /// A guaranteed assignment is independent of placement: that is, the assignment applies bugged or bugless. This is the lower bound.
+        guaranteed: usize,
+
+        /// A worst case assignment is dependent of placement: it may or may not be applied. This is the upper bound.
+        worst_case: usize,
+    }
 
     fn inner<'a>(
         parts: &'a [&'a [Effect]],
