@@ -30,17 +30,22 @@ pub struct Shape {
     pub mask: Mask,
 }
 
-/// A placement determines where to place a NaviCust part.
+/// A location determines where to place a NaviCust part.
 #[derive(Debug, Clone, Copy)]
-pub struct Placement {
-    /// Which part to place.
-    pub part_index: usize,
-
+pub struct Location {
     /// Where to place the part.
     pub position: (isize, isize),
 
     /// How many 90 degree rotations are required.
     pub rotation: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Placement {
+    pub loc: Location,
+    pub part_index: usize,
+    pub part_shape_index: usize,
+    pub color: usize,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -70,7 +75,12 @@ impl MemoryMap {
         }
     }
 
-    pub fn place(mut self, mask: &Mask, placement: Placement) -> Result<Self, PlaceError> {
+    pub fn place(
+        mut self,
+        mask: &Mask,
+        loc: Location,
+        placement_index: usize,
+    ) -> Result<Self, PlaceError> {
         if mask.repr.shape() != self.repr.shape() {
             return Err(PlaceError::ShapesMismatched {
                 memory_map_shape: self.repr.dim(),
@@ -81,20 +91,20 @@ impl MemoryMap {
         let (w, h) = self.repr.dim();
 
         let mut mask = std::borrow::Cow::Borrowed(mask);
-        for _ in 0..placement.rotation {
+        for _ in 0..loc.rotation {
             mask = std::borrow::Cow::Owned(mask.into_owned().rot90());
         }
 
-        let (src_x, dst_x) = if placement.position.0 < 0 {
-            (-placement.position.0 as usize, 0)
+        let (src_x, dst_x) = if loc.position.0 < 0 {
+            (-loc.position.0 as usize, 0)
         } else {
-            (0, placement.position.0 as usize)
+            (0, loc.position.0 as usize)
         };
 
-        let (src_y, dst_y) = if placement.position.1 < 0 {
-            (-placement.position.1 as usize, 0)
+        let (src_y, dst_y) = if loc.position.1 < 0 {
+            (-loc.position.1 as usize, 0)
         } else {
-            (0, placement.position.1 as usize)
+            (0, loc.position.1 as usize)
         };
 
         // Validate that our mask isn't being weirdly clipped.
@@ -121,7 +131,7 @@ impl MemoryMap {
                     if dst.is_some() {
                         return Err(PlaceError::DestinationClobbered);
                     }
-                    *dst = Some(placement.part_index);
+                    *dst = Some(placement_index);
                 }
             }
         }
@@ -213,11 +223,11 @@ mod tests {
             memory_map
                 .place(
                     &super_armor,
-                    Placement {
-                        part_index: 0,
+                    Location {
                         position: (0, 0),
                         rotation: 0,
                     },
+                    0
                 )
                 .unwrap()
                 .repr,
@@ -257,11 +267,11 @@ mod tests {
             memory_map
                 .place(
                     &super_armor,
-                    Placement {
-                        part_index: 0,
+                    Location {
                         position: (0, 0),
                         rotation: 1,
                     },
+                    0
                 )
                 .unwrap()
                 .repr,
@@ -301,11 +311,11 @@ mod tests {
             memory_map
                 .place(
                     &super_armor,
-                    Placement {
-                        part_index: 0,
+                    Location {
                         position: (1, 0),
                         rotation: 0,
                     },
+                    0
                 )
                 .unwrap()
                 .repr,
@@ -345,11 +355,11 @@ mod tests {
             memory_map
                 .place(
                     &super_armor,
-                    Placement {
-                        part_index: 0,
+                    Location {
                         position: (-1, 0),
                         rotation: 0,
                     },
+                    0
                 )
                 .unwrap()
                 .repr,
@@ -377,11 +387,11 @@ mod tests {
         assert_matches::assert_matches!(
             memory_map.place(
                 &super_armor,
-                Placement {
-                    part_index: 0,
+                Location {
                     position: (-1, -1),
                     rotation: 0,
                 },
+                0
             ),
             Err(PlaceError::SourceClipped)
         );
@@ -408,11 +418,11 @@ mod tests {
         assert_matches::assert_matches!(
             memory_map.place(
                 &super_armor,
-                Placement {
-                    part_index: 0,
+                Location {
                     position: (6, 0),
                     rotation: 0,
                 },
+                0
             ),
             Err(PlaceError::SourceClipped)
         );
@@ -440,11 +450,11 @@ mod tests {
         assert_matches::assert_matches!(
             memory_map.place(
                 &super_armor,
-                Placement {
-                    part_index: 0,
+                Location {
                     position: (0, 0),
                     rotation: 0,
                 },
+                0
             ),
             Err(PlaceError::DestinationClobbered)
         );
