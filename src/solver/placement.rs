@@ -50,9 +50,9 @@ pub struct Placement {
 
 #[derive(thiserror::Error, Debug)]
 enum PlaceError {
-    #[error("mismatching shapes: expected {memory_map_shape:?} got {mask_shape:?}")]
+    #[error("mismatching shapes: expected {tableau_shape:?} got {mask_shape:?}")]
     ShapesMismatched {
-        memory_map_shape: (usize, usize),
+        tableau_shape: (usize, usize),
         mask_shape: (usize, usize),
     },
 
@@ -64,12 +64,12 @@ enum PlaceError {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemoryMap {
+pub struct Tableau {
     placements: Vec<Placement>,
     arr: ndarray::Array2<Option<usize>>,
 }
 
-impl MemoryMap {
+impl Tableau {
     pub fn new(size: (usize, usize)) -> Self {
         Self {
             placements: vec![],
@@ -80,7 +80,7 @@ impl MemoryMap {
     pub fn place(mut self, mask: &Mask, placement: Placement) -> Result<Self, PlaceError> {
         if mask.repr.shape() != self.arr.shape() {
             return Err(PlaceError::ShapesMismatched {
-                memory_map_shape: self.arr.dim(),
+                tableau_shape: self.arr.dim(),
                 mask_shape: mask.repr.dim(),
             });
         }
@@ -191,8 +191,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place() {
+        let tableau = Tableau::new((7, 7));
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -219,7 +219,7 @@ mod tests {
         ]).unwrap();
 
         assert_eq!(
-            memory_map
+            tableau
                 .place(
                     &super_armor,
                     Placement {
@@ -239,8 +239,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place_rot() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place_rot() {
+        let tableau = Tableau::new((7, 7));
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -267,7 +267,7 @@ mod tests {
         ]).unwrap();
 
         assert_eq!(
-            memory_map
+            tableau
                 .place(
                     &super_armor,
                     Placement {
@@ -287,8 +287,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place_nonzero_pos() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place_nonzero_pos() {
+        let tableau = Tableau::new((7, 7));
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -315,7 +315,7 @@ mod tests {
         ]).unwrap();
 
         assert_eq!(
-            memory_map
+            tableau
                 .place(
                     &super_armor,
                     Placement {
@@ -335,8 +335,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place_neg_pos() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place_neg_pos() {
+        let tableau = Tableau::new((7, 7));
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -363,7 +363,7 @@ mod tests {
         ]).unwrap();
 
         assert_eq!(
-            memory_map
+            tableau
                 .place(
                     &super_armor,
                     Placement {
@@ -383,8 +383,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place_source_clipped() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place_source_clipped() {
+        let tableau = Tableau::new((7, 7));
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -400,7 +400,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            memory_map.place(
+            tableau.place(
                 &super_armor,
                 Placement {
                     loc: Location {
@@ -417,8 +417,8 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_place_source_clipped_other_side() {
-        let memory_map = MemoryMap::new((7, 7));
+    fn test_tableau_place_source_clipped_other_side() {
+        let tableau = Tableau::new((7, 7));
 
         let super_armor = Mask::new(
             (7, 7),
@@ -435,7 +435,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            memory_map.place(
+            tableau.place(
                 &super_armor,
                 Placement {
                     loc: Location {
@@ -452,9 +452,9 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_map_destination_clobbered() {
-        let mut memory_map = MemoryMap::new((7, 7));
-        memory_map.arr[[0, 0]] = Some(2);
+    fn test_tableau_destination_clobbered() {
+        let mut tableau = Tableau::new((7, 7));
+        tableau.arr[[0, 0]] = Some(2);
 
         let super_armor = Mask::new(
             (7, 7),
@@ -471,7 +471,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            memory_map.place(
+            tableau.place(
                 &super_armor,
                 Placement {
                     loc: Location {

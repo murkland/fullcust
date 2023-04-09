@@ -10,7 +10,7 @@ pub struct Environment {
     /// Size of the NaviCust environment.
     pub size: (usize, usize),
 
-    /// Whether or not the NaviCust's memory map has BN6-style out of bounds areas.
+    /// Whether or not the NaviCust's tableau has BN6-style out of bounds areas.
     pub has_oob: bool,
 
     /// Which row the command line is on.
@@ -31,8 +31,8 @@ pub fn solve<'a>(
         .map(|p| p.effects.as_slice())
         .collect::<Vec<_>>();
 
-    // Initialize a memory map.
-    let memory_map = placement::MemoryMap::new(env.size);
+    // Initialize a tableau.
+    let tableau = placement::Tableau::new(env.size);
 
     genawaiter::rc::gen!({
         for candidate in polyhedral::solve(&candidate_parts, env.size.0 * env.size.1, constraints) {
