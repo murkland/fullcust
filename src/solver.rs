@@ -549,8 +549,8 @@ mod tests {
                 Part {
                     must_be_on_command_line: true,
                     unbugged_effects: vec![Effect {
-                        variable: 0,
-                        delta: 1,
+                        variable_index: 0,
+                        add: 1,
                     }],
                     bugged_effects: vec![],
                     shapes: vec![Shape {
@@ -574,8 +574,8 @@ mod tests {
                 Part {
                     must_be_on_command_line: false,
                     unbugged_effects: vec![Effect {
-                        variable: 1,
-                        delta: 100,
+                        variable_index: 1,
+                        add: 100,
                     }],
                     bugged_effects: vec![],
                     shapes: vec![Shape {
