@@ -1,19 +1,28 @@
 use genawaiter::yield_;
 
-/// An effect is an alteration of a variable. Each NaviCust part may impart effects (e.g. HP+, enable Super Armor, etc.)
 #[derive(Debug, Clone)]
-pub struct Effect {
-    /// The variable to add to.
-    pub variable_index: usize,
-
-    /// The amount to alter the variable by. If the variable is boolean, this should be 1.
-    pub add: usize,
+pub struct Variable {
+    /// Incrementing beyond this maximum will saturate at the maximum.
+    pub max: usize,
 }
 
 /// A mask represents the shape of a NaviCust part.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mask {
     repr: ndarray::Array2<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum EffectBugRequirement {
+    BugOnly,
+    BuglessOnly,
+    Always,
+}
+
+#[derive(Debug, Clone)]
+pub struct Effect {
+    pub delta: usize,
+    pub bug_requirement: EffectBugRequirement,
 }
 
 impl Mask {
@@ -38,11 +47,8 @@ pub struct Part {
     /// The NaviCust part must be placed on the command line for its unbugged effects to be active.
     pub must_be_on_command_line: bool,
 
-    /// Effects that occur when the NaviCust part is unbugged.
-    pub unbugged_effects: Vec<Effect>,
-
-    /// Effects that occur when the NaviCust part is bugged. If the NaviCust part is not required to be on the command line, unbugged effects should be repeated here.
-    pub bugged_effects: Vec<Effect>,
+    /// Effects.
+    pub effects: Vec<Option<Effect>>,
 
     /// The shapes a part can be.
     pub shapes: Vec<Shape>,
@@ -61,6 +67,9 @@ pub struct Shape {
 /// An environment encapsulates all the starting parameters for the solver.
 #[derive(Debug, Clone)]
 pub struct Environment {
+    /// List of variables.
+    pub variables: Vec<Variable>,
+
     /// List of eligible parts.
     pub parts: Vec<Part>,
 
@@ -77,29 +86,11 @@ pub struct Environment {
 /// A variable constraint is a requirement to be solved.
 #[derive(Debug, Clone)]
 pub struct Constraint {
-    /// Minimum value for the variable.
-    pub min: usize,
+    /// Target value for the variable. This will always be honored.
+    pub target: usize,
 
-    /// Maximum value for the variable.
-    pub max: usize,
-}
-
-impl Constraint {
-    pub fn true_() -> Self {
-        Constraint { min: 1, max: 1 }
-    }
-
-    pub fn false_() -> Self {
-        Constraint { min: 0, max: 0 }
-    }
-
-    pub fn at_most(n: usize) -> Self {
-        Constraint { min: 0, max: n }
-    }
-
-    pub fn between(n: usize, m: usize) -> Self {
-        Constraint { min: 0, max: m }
-    }
+    /// Cap value for the variable. The solver will not attempt to find all solutions up to the cap, it will only reject solutions greater than the cap.
+    pub cap: usize,
 }
 
 /// A placement determines where to place a NaviCust part.
@@ -118,7 +109,13 @@ pub struct Placement {
 type Solution = Vec<Placement>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {}
+pub enum Error {
+    #[error("mismatching constraints: expected {num_variables} got {num_constraints}")]
+    MismatchingConstraints {
+        num_constraints: usize,
+        num_variables: usize,
+    },
+}
 
 #[derive(thiserror::Error, Debug)]
 enum PlaceError {
@@ -208,20 +205,95 @@ impl MemoryMap {
 }
 
 /// Given a list of variables, parts, and constraints, find candidate sets of parts.
+///
+/// We don't respect the cap here, because it is subject to arrangement.
 fn find_candidate_part_sets<'a>(
     parts: &'a [Part],
-    constraints: &'a [Option<Constraint>],
-) -> Result<impl Iterator<Item = std::collections::HashMap<usize, usize>> + 'a, Error> {
-    Ok(genawaiter::rc::gen!({}).into_iter())
+    variables: &'a [Variable],
+    constraints: &'a [Constraint],
+) -> Result<impl Iterator<Item = Vec<usize>> + 'a, Error> {
+    if variables.len() != constraints.len() {
+        return Err(Error::MismatchingConstraints {
+            num_constraints: constraints.len(),
+            num_variables: variables.len(),
+        });
+    }
+
+    let parts_by_variable = {
+        let mut parts_by_variable_map = std::collections::HashMap::new();
+        for (i, part) in parts.iter().enumerate() {
+            for (variable_index, effect) in part.effects.iter().enumerate() {
+                if effect.is_none() {
+                    continue;
+                }
+
+                parts_by_variable_map
+                    .entry(variable_index)
+                    .or_insert_with(|| vec![])
+                    .push(i);
+            }
+        }
+
+        (0..variables.len())
+            .map(|i| parts_by_variable_map.remove(&i).unwrap_or_else(|| vec![]))
+            .collect::<Vec<_>>()
+    };
+
+    fn inner<'a>(
+        parts: &'a [Part],
+        parts_by_variable: std::rc::Rc<Vec<Vec<usize>>>,
+        vc_pairs: Vec<(&'a Variable, Constraint)>,
+    ) -> impl Iterator<Item = Vec<usize>> + 'a {
+        genawaiter::rc::gen!({
+            let variable_index = if let Some(i) = vc_pairs.iter().position(|(_, c)| c.target > 0) {
+                i
+            } else {
+                yield_!(vec![0; parts.len()]);
+                return;
+            };
+
+            for part_idx in parts_by_variable[variable_index].iter() {
+                let part = &parts[*part_idx];
+
+                let mut vc_pairs = vc_pairs.clone();
+                for ((variable, constraint), effect) in vc_pairs.iter_mut().zip(part.effects.iter())
+                {
+                    if let Some(effect) = effect {
+                        if effect.delta > constraint.target {
+                            constraint.target = 0;
+                        } else {
+                            constraint.target -= effect.delta;
+                        }
+                    }
+                }
+
+                let part_sets =
+                    inner(parts, parts_by_variable.clone(), vc_pairs).collect::<Vec<_>>();
+
+                for parts in part_sets.iter() {
+                    let mut parts = parts.clone();
+                    parts[*part_idx] += 1;
+                    yield_!(parts);
+                }
+            }
+        })
+        .into_iter()
+    }
+
+    Ok(inner(
+        parts,
+        std::rc::Rc::new(parts_by_variable),
+        std::iter::zip(variables, constraints.iter().map(|c| c.clone())).collect(),
+    ))
 }
 
 /// Solve.
 pub fn solve<'a>(
     env: &'a Environment,
-    constraints: &'a [Option<Constraint>],
+    constraints: &'a [Constraint],
     want_colorbug: Option<bool>,
 ) -> Result<impl Iterator<Item = Solution> + 'a, Error> {
-    let candidates = find_candidate_part_sets(&env.parts, constraints)?;
+    let candidates = find_candidate_part_sets(&env.parts, &env.variables, constraints)?;
 
     // Initialize a memory map.
     let memory_map = MemoryMap::new(env.size);
@@ -542,67 +614,82 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_solve() {
-        let env = Environment {
-            parts: vec![
-                // Super Armor
-                Part {
-                    must_be_on_command_line: true,
-                    unbugged_effects: vec![Effect {
-                        variable_index: 0,
-                        add: 1,
-                    }],
-                    bugged_effects: vec![],
-                    shapes: vec![Shape {
-                        color: 0,
-                        mask: Mask::new(
-                            (7, 7),
-                            vec![
-                                true, false, false, false, false, false, false, //
-                                true, true, false, false, false, false, false, //
-                                true, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                            ],
-                        )
-                        .unwrap(),
-                    }],
-                },
-                // HP +100
-                Part {
-                    must_be_on_command_line: false,
-                    unbugged_effects: vec![Effect {
-                        variable_index: 1,
-                        add: 100,
-                    }],
-                    bugged_effects: vec![],
-                    shapes: vec![Shape {
-                        color: 1,
-                        mask: Mask::new(
-                            (7, 7),
-                            vec![
-                                true, true, false, false, false, false, false, //
-                                true, true, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                                false, false, false, false, false, false, false, //
-                            ],
-                        )
-                        .unwrap(),
-                    }],
-                },
-            ],
-            size: (7, 7),
-            has_oob: true,
-            command_line_row: 3,
-        };
-
-        for solution in solve(&env, &[None, Some(Constraint::at_most(100))], None).unwrap() {
-            println!("{:?}", solution);
-        }
+    fn test_find_candidate_part_sets() {
+        assert_eq!(
+            find_candidate_part_sets(
+                &[
+                    // Super Armor
+                    Part {
+                        must_be_on_command_line: true,
+                        effects: vec![
+                            Some(Effect {
+                                bug_requirement: EffectBugRequirement::BuglessOnly,
+                                delta: 1
+                            }),
+                            None
+                        ],
+                        shapes: vec![Shape {
+                            color: 0,
+                            mask: Mask::new(
+                                (7, 7),
+                                vec![
+                                    true, false, false, false, false, false, false, //
+                                    true, true, false, false, false, false, false, //
+                                    true, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                ],
+                            )
+                            .unwrap(),
+                        }],
+                    },
+                    // HP +100
+                    Part {
+                        must_be_on_command_line: false,
+                        effects: vec![
+                            None,
+                            Some(Effect {
+                                bug_requirement: EffectBugRequirement::Always,
+                                delta: 100
+                            })
+                        ],
+                        shapes: vec![Shape {
+                            color: 1,
+                            mask: Mask::new(
+                                (7, 7),
+                                vec![
+                                    true, true, false, false, false, false, false, //
+                                    true, true, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                    false, false, false, false, false, false, false, //
+                                ],
+                            )
+                            .unwrap(),
+                        }],
+                    },
+                ],
+                &[
+                    // Super Armor
+                    Variable { max: 1 },
+                    // HP
+                    Variable { max: 100 },
+                ],
+                &[
+                    Constraint { target: 1, cap: 1 },
+                    Constraint {
+                        target: 300,
+                        cap: 300
+                    }
+                ],
+            )
+            .unwrap()
+            .collect::<Vec<_>>(),
+            vec![vec![1, 3]]
+        );
     }
 }
