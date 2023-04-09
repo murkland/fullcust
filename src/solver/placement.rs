@@ -60,13 +60,17 @@ enum PlaceError {
 #[derive(Clone, Debug)]
 pub struct Tableau {
     placements: Vec<Placement>,
+    has_oob: bool,
+    command_line_row: usize,
     arr: ndarray::Array2<Option<usize>>,
 }
 
 impl Tableau {
-    pub fn new(size: (usize, usize)) -> Self {
+    pub fn new(size: (usize, usize), has_oob: bool, command_line_row: usize) -> Self {
         Self {
             placements: vec![],
+            has_oob,
+            command_line_row,
             arr: ndarray::Array2::from_elem(size, None),
         }
     }
@@ -183,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -231,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_different_sizes() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (3, 2),
             vec![
@@ -275,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_rot() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -323,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_nonzero_pos() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -371,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_neg_pos() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -419,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_source_clipped() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -453,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_tableau_place_source_clipped_other_side() {
-        let tableau = Tableau::new((7, 7));
+        let tableau = Tableau::new((7, 7), true, 3);
 
         let super_armor = Mask::new(
             (7, 7),
@@ -488,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_tableau_destination_clobbered() {
-        let mut tableau = Tableau::new((7, 7));
+        let mut tableau = Tableau::new((7, 7), true, 3);
         tableau.arr[[0, 0]] = Some(2);
 
         let super_armor = Mask::new(
