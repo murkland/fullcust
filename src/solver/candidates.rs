@@ -2,7 +2,10 @@ use genawaiter::yield_;
 
 #[derive(Debug, Clone)]
 struct Assignment {
+    /// A guaranteed assignment is independent of placement: that is, the assignment applies bugged or bugless. This is the lower bound.
     guaranteed: usize,
+
+    /// A worst case assignment is dependent of placement: it may or may not be applied. This is the upper bound.
     worst_case: usize,
 }
 
