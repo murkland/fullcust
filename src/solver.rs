@@ -1,30 +1,11 @@
 mod placement;
 mod polyhedral;
 
-#[derive(Debug, Clone)]
-pub struct Effect {
-    pub bugless: usize,
-    pub bugged: usize,
-}
-
-/// A part is a NaviCust part.
-#[derive(Debug, Clone)]
-pub struct Part {
-    /// The NaviCust part must be placed on the command line for its unbugged effects to be active.
-    pub must_be_on_command_line: bool,
-
-    /// Effects.
-    pub effects: Vec<polyhedral::Effect>,
-
-    /// The shapes a part can be.
-    pub shapes: Vec<placement::Shape>,
-}
-
 /// An environment encapsulates all the starting parameters for the solver.
 #[derive(Debug, Clone)]
 pub struct Environment {
     /// List of eligible parts.
-    pub parts: Vec<Part>,
+    pub parts: Vec<placement::Part>,
 
     /// Size of the NaviCust environment.
     pub size: (usize, usize),

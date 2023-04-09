@@ -130,6 +130,19 @@ impl MemoryMap {
     }
 }
 
+/// A part is a NaviCust part.
+#[derive(Debug, Clone)]
+pub struct Part {
+    /// The NaviCust part must be placed on the command line for its unbugged effects to be active.
+    pub must_be_on_command_line: bool,
+
+    /// Effects.
+    pub effects: Vec<super::polyhedral::Effect>,
+
+    /// The shapes a part can be.
+    pub shapes: Vec<Shape>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
