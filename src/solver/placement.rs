@@ -34,7 +34,7 @@ pub struct Shape {
 #[derive(Debug, Clone, Copy)]
 pub struct Placement {
     /// Which part to place.
-    pub part_index: usize,
+    pub part_and_shape_index: (usize, usize),
 
     /// Where to place the part.
     pub position: (isize, isize),
@@ -60,7 +60,7 @@ enum PlaceError {
 
 #[derive(Clone, Debug)]
 pub struct MemoryMap {
-    repr: ndarray::Array2<Option<usize>>,
+    repr: ndarray::Array2<Option<(usize, usize)>>,
 }
 
 impl MemoryMap {
@@ -121,7 +121,7 @@ impl MemoryMap {
                     if dst.is_some() {
                         return Err(PlaceError::DestinationClobbered);
                     }
-                    *dst = Some(placement.part_index);
+                    *dst = Some(placement.part_and_shape_index);
                 }
             }
         }
@@ -200,9 +200,9 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Some(0), None, None, None, None, None, None,
-            Some(0), Some(0), None, None, None, None, None,
-            Some(0), None, None, None, None, None, None,
+            Some((0, 0)), None, None, None, None, None, None,
+            Some((0, 0)), Some((0, 0)), None, None, None, None, None,
+            Some((0, 0)), None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
@@ -214,7 +214,7 @@ mod tests {
                 .place(
                     &super_armor,
                     Placement {
-                        part_index: 0,
+                        part_and_shape_index: (0, 0),
                         position: (0, 0),
                         rotation: 0,
                     },
@@ -244,8 +244,8 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            None, None, None, None, Some(0), Some(0), Some(0),
-            None, None, None, None, None, Some(0), None,
+            None, None, None, None, Some((0, 0)), Some((0, 0)), Some((0, 0)),
+            None, None, None, None, None, Some((0, 0)), None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
@@ -258,7 +258,7 @@ mod tests {
                 .place(
                     &super_armor,
                     Placement {
-                        part_index: 0,
+                        part_and_shape_index: (0, 0),
                         position: (0, 0),
                         rotation: 1,
                     },
@@ -288,9 +288,9 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            None, Some(0), None, None, None, None, None,
-            None, Some(0), Some(0), None, None, None, None,
-            None, Some(0), None, None, None, None, None,
+            None, Some((0, 0)), None, None, None, None, None,
+            None, Some((0, 0)), Some((0, 0)), None, None, None, None,
+            None, Some((0, 0)), None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
@@ -302,7 +302,7 @@ mod tests {
                 .place(
                     &super_armor,
                     Placement {
-                        part_index: 0,
+                        part_and_shape_index: (0, 0),
                         position: (1, 0),
                         rotation: 0,
                     },
@@ -332,9 +332,9 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Some(0), None, None, None, None, None, None,
-            Some(0), Some(0), None, None, None, None, None,
-            Some(0), None, None, None, None, None, None,
+            Some((0, 0)), None, None, None, None, None, None,
+            Some((0, 0)), Some((0, 0)), None, None, None, None, None,
+            Some((0, 0)), None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
             None, None, None, None, None, None, None,
@@ -346,7 +346,7 @@ mod tests {
                 .place(
                     &super_armor,
                     Placement {
-                        part_index: 0,
+                        part_and_shape_index: (0, 0),
                         position: (-1, 0),
                         rotation: 0,
                     },
@@ -378,7 +378,7 @@ mod tests {
             memory_map.place(
                 &super_armor,
                 Placement {
-                    part_index: 0,
+                    part_and_shape_index: (0, 0),
                     position: (-1, -1),
                     rotation: 0,
                 },
@@ -409,7 +409,7 @@ mod tests {
             memory_map.place(
                 &super_armor,
                 Placement {
-                    part_index: 0,
+                    part_and_shape_index: (0, 0),
                     position: (6, 0),
                     rotation: 0,
                 },
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn test_memory_map_destination_clobbered() {
         let mut memory_map = MemoryMap::new((7, 7));
-        memory_map.repr[[0, 0]] = Some(2);
+        memory_map.repr[[0, 0]] = Some((2, 0));
 
         let super_armor = Mask::new(
             (7, 7),
@@ -441,7 +441,7 @@ mod tests {
             memory_map.place(
                 &super_armor,
                 Placement {
-                    part_index: 0,
+                    part_and_shape_index: (0, 0),
                     position: (0, 0),
                     rotation: 0,
                 },
