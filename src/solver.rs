@@ -1,5 +1,5 @@
-mod candidates;
 mod placement;
+mod polyhedral;
 
 #[derive(Debug, Clone)]
 pub struct Effect {
@@ -14,7 +14,7 @@ pub struct Part {
     pub must_be_on_command_line: bool,
 
     /// Effects.
-    pub effects: Vec<Effect>,
+    pub effects: Vec<polyhedral::Effect>,
 
     /// The shapes a part can be.
     pub shapes: Vec<placement::Shape>,
@@ -41,7 +41,7 @@ type Solution = Vec<placement::Placement>;
 /// Solve.
 pub fn solve<'a>(
     env: &'a Environment,
-    constraints: &'a [candidates::Constraint],
+    constraints: &'a [polyhedral::Constraint],
     want_colorbug: Option<bool>,
 ) -> impl Iterator<Item = Solution> + 'a {
     let candidate_parts = env
@@ -54,8 +54,7 @@ pub fn solve<'a>(
     let memory_map = placement::MemoryMap::new(env.size);
 
     genawaiter::rc::gen!({
-        for candidate in candidates::gather(&candidate_parts, env.size.0 * env.size.1, constraints)
-        {
+        for candidate in polyhedral::solve(&candidate_parts, env.size.0 * env.size.1, constraints) {
             //
         }
     })

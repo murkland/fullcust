@@ -1,5 +1,10 @@
+//! The polyhedral solver.
+//!
+//! This is the first phase of the solver, where we attempt to enumerate all points in a polyhedron subject to integer constraints.
+
 use genawaiter::yield_;
 
+/// An assignment is an assignment to a variable in the solver.
 #[derive(Debug, Clone)]
 struct Assignment {
     /// A guaranteed assignment is independent of placement: that is, the assignment applies bugged or bugless. This is the lower bound.
@@ -7,6 +12,12 @@ struct Assignment {
 
     /// A worst case assignment is dependent of placement: it may or may not be applied. This is the upper bound.
     worst_case: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Effect {
+    pub bugless: usize,
+    pub bugged: usize,
 }
 
 /// A variable constraint is a requirement to be solved.
@@ -22,8 +33,8 @@ pub struct Constraint {
 /// Given a list of variables, parts, and constraints, find candidate sets of parts.
 ///
 /// We don't respect the limit here, because it is subject to arrangement.
-pub fn gather<'a>(
-    parts: &'a [&'a [super::Effect]],
+pub fn solve<'a>(
+    parts: &'a [&'a [Effect]],
     part_limit: usize,
     constraints: &'a [Constraint],
 ) -> impl Iterator<Item = Vec<usize>> + 'a {
@@ -57,7 +68,7 @@ pub fn gather<'a>(
     };
 
     fn inner<'a>(
-        parts: &'a [&'a [super::Effect]],
+        parts: &'a [&'a [Effect]],
         part_limit: usize,
         parts_by_variable: std::rc::Rc<Vec<Vec<usize>>>,
         assignments: Vec<(&'a Constraint, Assignment)>,
@@ -131,28 +142,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_gather() {
+    fn test_solve() {
         assert_eq!(
-            gather(
+            solve(
                 &[
                     // Super Armor
                     &[
-                        super::super::Effect {
+                        Effect {
                             bugless: 1,
                             bugged: 0
                         },
-                        super::super::Effect {
+                        Effect {
                             bugless: 0,
                             bugged: 0
                         }
                     ],
                     // HP +100
                     &[
-                        super::super::Effect {
+                        Effect {
                             bugless: 0,
                             bugged: 0
                         },
-                        super::super::Effect {
+                        Effect {
                             bugless: 100,
                             bugged: 100
                         }
@@ -176,28 +187,28 @@ mod tests {
     }
 
     #[test]
-    fn test_gather_inexact() {
+    fn test_solve_inexact() {
         assert_eq!(
-            gather(
+            solve(
                 &[
                     // Super Armor
                     &[
-                        super::super::Effect {
+                        Effect {
                             bugless: 1,
                             bugged: 0
                         },
-                        super::super::Effect {
+                        Effect {
                             bugless: 0,
                             bugged: 0
                         }
                     ],
                     // HP +100
                     &[
-                        super::super::Effect {
+                        Effect {
                             bugless: 0,
                             bugged: 0
                         },
-                        super::super::Effect {
+                        Effect {
                             bugless: 100,
                             bugged: 100
                         }
@@ -221,12 +232,12 @@ mod tests {
     }
 
     #[test]
-    fn test_gather_limit() {
+    fn test_solve_limit() {
         assert_eq!(
-            gather(
+            solve(
                 &[
                     // HP +100
-                    &[super::super::Effect {
+                    &[Effect {
                         bugless: 100,
                         bugged: 100
                     }],
@@ -243,29 +254,146 @@ mod tests {
     }
 
     #[test]
-    fn test_gather_largest_first() {
+    fn test_solve_largest_first() {
         assert_eq!(
-            gather(
+            solve(
                 &[
+                    // HP +10
+                    &[Effect {
+                        bugless: 10,
+                        bugged: 10
+                    }],
                     // HP +50
-                    &[super::super::Effect {
+                    &[Effect {
                         bugless: 50,
                         bugged: 50
                     }],
                     // HP +100
-                    &[super::super::Effect {
+                    &[Effect {
                         bugless: 100,
                         bugged: 100
                     }],
                 ],
-                10,
+                2,
                 &[Constraint {
                     target: 100,
                     limit: 100
                 }],
             )
             .collect::<Vec<_>>(),
-            vec![vec![0, 1], vec![2, 0]],
+            vec![vec![0, 0, 1], vec![0, 2, 0]],
+        );
+    }
+
+    #[test]
+    fn test_solve_multiple_effects() {
+        assert_eq!(
+            solve(
+                &[
+                    // Body Pack
+                    &[
+                        Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                        Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                    ],
+                    // Super Armor
+                    &[
+                        Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                        Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                    ],
+                    // Air Shoes
+                    &[
+                        Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                        Effect {
+                            bugless: 1,
+                            bugged: 0
+                        },
+                    ],
+                ],
+                2,
+                &[
+                    Constraint {
+                        target: 1,
+                        limit: 1
+                    },
+                    Constraint {
+                        target: 0,
+                        limit: 1,
+                    }
+                ],
+            )
+            .collect::<Vec<_>>(),
+            vec![vec![1, 0, 0], vec![0, 1, 0]],
+        );
+    }
+
+    #[test]
+    fn test_solve_multiple_effects_limit() {
+        assert_eq!(
+            solve(
+                &[
+                    // Body Pack
+                    &[
+                        Effect {
+                            bugless: 1,
+                            bugged: 1
+                        },
+                        Effect {
+                            bugless: 1,
+                            bugged: 1
+                        },
+                    ],
+                    // Super Armor
+                    &[
+                        Effect {
+                            bugless: 1,
+                            bugged: 1
+                        },
+                        Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                    ],
+                    // Air Shoes
+                    &[
+                        Effect {
+                            bugless: 0,
+                            bugged: 0
+                        },
+                        Effect {
+                            bugless: 1,
+                            bugged: 1
+                        },
+                    ],
+                ],
+                2,
+                &[
+                    Constraint {
+                        target: 1,
+                        limit: 1
+                    },
+                    Constraint {
+                        target: 0,
+                        limit: 0,
+                    }
+                ],
+            )
+            .collect::<Vec<_>>(),
+            vec![vec![0, 1, 0]],
         );
     }
 }
