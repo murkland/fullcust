@@ -1,25 +1,21 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mask {
-    layout_arr: ndarray::Array2<bool>,
+    cells: ndarray::Array2<bool>,
 }
 
 impl Mask {
     pub fn new(shape: (usize, usize), mask: Vec<bool>) -> Result<Self, ndarray::ShapeError> {
         Ok(Mask {
-            layout_arr: ndarray::Array2::from_shape_vec(shape, mask)?,
+            cells: ndarray::Array2::from_shape_vec(shape, mask)?,
         })
     }
 
     fn rot90(self) -> Self {
-        let mut mask = self
-            .layout_arr
-            .reversed_axes()
-            .as_standard_layout()
-            .into_owned();
+        let mut mask = self.cells.reversed_axes().as_standard_layout().into_owned();
         for row in mask.rows_mut() {
             row.into_slice().unwrap().reverse();
         }
-        Mask { layout_arr: mask }
+        Mask { cells: mask }
     }
 }
 
@@ -46,21 +42,38 @@ enum PlaceError {
     SourceClipped,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Cell {
+    Empty,
+    Placed(usize),
+    Forbidden,
+}
+
 #[derive(Clone, Debug)]
 struct Grid {
     placements: Vec<Placement>,
     has_oob: bool,
     command_line_row: usize,
-    layout_arr: ndarray::Array2<Option<usize>>,
+    cells: ndarray::Array2<Cell>,
 }
 
 impl Grid {
     fn new(size: (usize, usize), has_oob: bool, command_line_row: usize) -> Self {
+        let mut cells = ndarray::Array2::from_elem(size, Cell::Empty);
+
+        if has_oob {
+            let (w, h) = size;
+            cells[[0, 0]] = Cell::Forbidden;
+            cells[[w - 1, 0]] = Cell::Forbidden;
+            cells[[0, h - 1]] = Cell::Forbidden;
+            cells[[w - 1, h - 1]] = Cell::Forbidden;
+        }
+
         Self {
             placements: vec![],
             has_oob,
             command_line_row,
-            layout_arr: ndarray::Array2::from_elem(size, None),
+            cells,
         }
     }
 
@@ -71,7 +84,7 @@ impl Grid {
     fn place(&mut self, mask: &Mask, placement: Placement) -> Result<(), PlaceError> {
         let placement_index = self.placements.len();
 
-        let (h, w) = self.layout_arr.dim();
+        let (h, w) = self.cells.dim();
 
         let mut mask = std::borrow::Cow::Borrowed(mask);
         for _ in 0..placement.loc.rotation {
@@ -91,7 +104,7 @@ impl Grid {
         };
 
         // Validate that our mask isn't being weirdly clipped.
-        for (y, row) in mask.layout_arr.rows().into_iter().enumerate() {
+        for (y, row) in mask.cells.rows().into_iter().enumerate() {
             for (x, &v) in row.into_iter().enumerate() {
                 // Standard stuff...
                 if x >= src_x && y >= src_y && x < w - dst_x && y < h - dst_y {
@@ -106,26 +119,24 @@ impl Grid {
 
         // Validate we're not clobbering over the destination.
         for (src_row, dst_row) in std::iter::zip(
-            mask.layout_arr.slice(ndarray::s![src_y.., src_x..]).rows(),
-            self.layout_arr
-                .slice_mut(ndarray::s![dst_y.., dst_x..])
-                .rows(),
+            mask.cells.slice(ndarray::s![src_y.., src_x..]).rows(),
+            self.cells.slice_mut(ndarray::s![dst_y.., dst_x..]).rows(),
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
-                if *src && dst.is_some() {
+                if *src && !matches!(dst, Cell::Empty) {
                     return Err(PlaceError::DestinationClobbered);
                 }
             }
         }
         for (src_row, dst_row) in std::iter::zip(
-            mask.layout_arr.slice(ndarray::s![src_y.., src_x..]).rows(),
-            self.layout_arr
+            mask.cells.slice(ndarray::s![src_y.., src_x..]).rows(),
+            self.cells
                 .slice_mut(ndarray::s![dst_y.., dst_x..])
                 .rows_mut(),
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
                 if *src {
-                    *dst = Some(placement_index);
+                    *dst = Cell::Placed(placement_index);
                 }
             }
         }
@@ -207,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_grid_place() {
-        let mut grid = Grid::new((7, 7), true, 3);
+        let mut grid = Grid::new((7, 7), false, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -224,13 +235,13 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Some(0), None, None, None, None, None, None,
-            Some(0), Some(0), None, None, None, None, None,
-            Some(0), None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
         grid.place(
@@ -247,52 +258,11 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(grid.layout_arr, expected_repr);
+        assert_eq!(grid.cells, expected_repr);
     }
 
     #[test]
-    fn test_grid_place_different_sizes() {
-        let mut grid = Grid::new((7, 7), true, 3);
-        let super_armor = Mask::new(
-            (3, 2),
-            vec![
-                true, false, //
-                true, true, //
-                true, false, //
-            ],
-        )
-        .unwrap();
-
-        #[rustfmt::skip]
-        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Some(0), None, None, None, None, None, None,
-            Some(0), Some(0), None, None, None, None, None,
-            Some(0), None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-        ]).unwrap();
-
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (0, 0),
-                    rotation: 0,
-                },
-                part_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(grid.layout_arr, expected_repr);
-    }
-
-    #[test]
-    fn test_grid_place_rot() {
+    fn test_grid_place_oob() {
         let mut grid = Grid::new((7, 7), true, 3);
         let super_armor = Mask::new(
             (7, 7),
@@ -310,58 +280,13 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            None, None, None, None, Some(0), Some(0), Some(0),
-            None, None, None, None, None, Some(0), None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-        ]).unwrap();
-
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (0, 0),
-                    rotation: 1,
-                },
-                part_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(grid.layout_arr, expected_repr);
-    }
-
-    #[test]
-    fn test_grid_place_nonzero_pos() {
-        let mut grid = Grid::new((7, 7), true, 3);
-        let super_armor = Mask::new(
-            (7, 7),
-            vec![
-                true, false, false, false, false, false, false, //
-                true, true, false, false, false, false, false, //
-                true, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-            ],
-        )
-        .unwrap();
-
-        #[rustfmt::skip]
-        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            None, Some(0), None, None, None, None, None,
-            None, Some(0), Some(0), None, None, None, None,
-            None, Some(0), None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
+            Cell::Forbidden, Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
+            Cell::Empty, Cell::Placed(0), Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
         grid.place(
@@ -378,12 +303,177 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(grid.layout_arr, expected_repr);
+        assert_eq!(grid.cells, expected_repr);
+    }
+
+    #[test]
+    fn test_grid_place_forbidden() {
+        let mut grid = Grid::new((7, 7), true, 3);
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_matches::assert_matches!(
+            grid.place(
+                &super_armor,
+                Placement {
+                    loc: Location {
+                        position: (0, 0),
+                        rotation: 0,
+                    },
+                    part_index: 0,
+                    color: 0,
+                    compressed: false,
+                },
+            ),
+            Err(PlaceError::DestinationClobbered)
+        );
+    }
+
+    #[test]
+    fn test_grid_place_different_sizes() {
+        let mut grid = Grid::new((7, 7), false, 3);
+        let super_armor = Mask::new(
+            (3, 2),
+            vec![
+                true, false, //
+                true, true, //
+                true, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+        ]).unwrap();
+
+        grid.place(
+            &super_armor,
+            Placement {
+                loc: Location {
+                    position: (0, 0),
+                    rotation: 0,
+                },
+                part_index: 0,
+                color: 0,
+                compressed: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(grid.cells, expected_repr);
+    }
+
+    #[test]
+    fn test_grid_place_rot() {
+        let mut grid = Grid::new((7, 7), false, 3);
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Placed(0), Cell::Placed(0), Cell::Placed(0),
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Placed(0), Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+        ]).unwrap();
+
+        grid.place(
+            &super_armor,
+            Placement {
+                loc: Location {
+                    position: (0, 0),
+                    rotation: 1,
+                },
+                part_index: 0,
+                color: 0,
+                compressed: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(grid.cells, expected_repr);
+    }
+
+    #[test]
+    fn test_grid_place_nonzero_pos() {
+        let mut grid = Grid::new((7, 7), false, 3);
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Cell::Empty, Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Placed(0), Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+        ]).unwrap();
+
+        grid.place(
+            &super_armor,
+            Placement {
+                loc: Location {
+                    position: (1, 0),
+                    rotation: 0,
+                },
+                part_index: 0,
+                color: 0,
+                compressed: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(grid.cells, expected_repr);
     }
 
     #[test]
     fn test_grid_place_neg_pos() {
-        let mut grid = Grid::new((7, 7), true, 3);
+        let mut grid = Grid::new((7, 7), false, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -400,13 +490,13 @@ mod tests {
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Some(0), None, None, None, None, None, None,
-            Some(0), Some(0), None, None, None, None, None,
-            Some(0), None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
-            None, None, None, None, None, None, None,
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Placed(0), Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
         grid.place(
@@ -423,12 +513,12 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(grid.layout_arr, expected_repr);
+        assert_eq!(grid.cells, expected_repr);
     }
 
     #[test]
     fn test_grid_place_source_clipped() {
-        let mut grid = Grid::new((7, 7), true, 3);
+        let mut grid = Grid::new((7, 7), false, 3);
         let super_armor = Mask::new(
             (7, 7),
             vec![
@@ -462,7 +552,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_source_clipped_other_side() {
-        let mut grid = Grid::new((7, 7), true, 3);
+        let mut grid = Grid::new((7, 7), false, 3);
 
         let super_armor = Mask::new(
             (7, 7),
@@ -497,8 +587,8 @@ mod tests {
 
     #[test]
     fn test_grid_destination_clobbered() {
-        let mut grid = Grid::new((7, 7), true, 3);
-        grid.layout_arr[[0, 0]] = Some(2);
+        let mut grid = Grid::new((7, 7), false, 3);
+        grid.cells[[0, 0]] = Cell::Placed(2);
 
         let super_armor = Mask::new(
             (7, 7),
