@@ -120,7 +120,7 @@ impl Grid {
         // Validate we're not clobbering over the destination.
         for (src_row, dst_row) in std::iter::zip(
             mask.cells.slice(ndarray::s![src_y.., src_x..]).rows(),
-            self.cells.slice_mut(ndarray::s![dst_y.., dst_x..]).rows(),
+            self.cells.slice(ndarray::s![dst_y.., dst_x..]).rows(),
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
                 if *src && !matches!(dst, Cell::Empty) {
@@ -257,6 +257,100 @@ mod tests {
             },
         )
         .unwrap();
+
+        assert_eq!(grid.cells, expected_repr);
+    }
+
+    #[test]
+    fn test_grid_place_error_source_clipped_does_not_mutate() {
+        let mut grid = Grid::new((7, 7), false, 3);
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+        ]).unwrap();
+
+        assert_matches::assert_matches!(
+            grid.place(
+                &super_armor,
+                Placement {
+                    loc: Location {
+                        position: (-1, 0),
+                        rotation: 0,
+                    },
+                    part_index: 0,
+                    color: 0,
+                    compressed: false,
+                },
+            ),
+            Err(PlaceError::SourceClipped)
+        );
+
+        assert_eq!(grid.cells, expected_repr);
+    }
+
+    #[test]
+    fn test_grid_place_error_destination_clobbered_does_not_mutate() {
+        let mut grid = Grid::new((7, 7), true, 3);
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        #[rustfmt::skip]
+        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
+            Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
+            Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
+        ]).unwrap();
+
+        assert_matches::assert_matches!(
+            grid.place(
+                &super_armor,
+                Placement {
+                    loc: Location {
+                        position: (0, 0),
+                        rotation: 0,
+                    },
+                    part_index: 0,
+                    color: 0,
+                    compressed: false,
+                },
+            ),
+            Err(PlaceError::DestinationClobbered)
+        );
 
         assert_eq!(grid.cells, expected_repr);
     }
