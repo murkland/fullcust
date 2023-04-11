@@ -157,7 +157,7 @@ pub struct Part {
 }
 
 pub struct Requirement {
-    pub part_idx: usize,
+    pub part_index: usize,
     pub compressed: Option<bool>,
     pub on_command_line: Option<bool>,
     pub bugged: Option<bool>,
