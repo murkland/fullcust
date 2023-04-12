@@ -20,46 +20,44 @@
 
             #results {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
                 text-align: center;
                 gap: 1rem;
             }
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="my-3">
-                <h1>fullcust</h1>
-                <p class="lead">
-                    navicust autolayout・ナビカスタマイザー自動配置
-                </p>
-            </div>
-            <form id="form" class="mb-3">
-                <fieldset id="fieldset" class="mb-3">
-                    <div class="form mb-3">
-                        <div class="col">
-                            <select
-                                class="form-select"
-                                id="part-select"
-                                disabled
-                            >
-                                <option value="" disabled selected>
-                                    Pick a part・パートを選択
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <ol class="list-group" id="requirements"></ol>
-                </fieldset>
-                <div class="row">
-                    <div class="col-auto">
-                        <button type="reset" id="reset" class="btn btn-danger">
-                            <span>Reset・リセット</span>
-                        </button>
-                    </div>
+        <div
+            class="container-fluid h-100 position-fixed d-flex flex-column py-2"
+            style="width: 40%"
+        >
+            <h1 class="h4">
+                fullcust
+                <small class="text-muted"
+                    >navicust autolayout・ナビカスタマイザー自動配置</small
+                >
+            </h1>
+            <div class="form mb-2">
+                <div class="col">
+                    <select class="form-select" id="part-select" disabled>
+                        <option value="" disabled selected>
+                            Pick a part・パートを選択
+                        </option>
+                    </select>
                 </div>
-            </form>
-
+            </div>
+            <div class="overflow-auto flex-grow-1 mb-2">
+                <ol class="list-group" id="requirements"></ol>
+            </div>
+            <div class="row">
+                <div class="col-auto">
+                    <button type="reset" id="reset" class="btn btn-danger">
+                        <span>Reset・リセット</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid my-2" style="margin-left: 40%; width: 60%">
             <div id="results"></div>
             <div
                 id="no-results"
@@ -68,8 +66,7 @@
             >
                 No solutions found・解決が見つからなかった
             </div>
-
-            <script src="index.js"></script>
         </div>
+        <script src="index.js"></script>
     </body>
 </html>
