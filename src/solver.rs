@@ -478,6 +478,14 @@ fn placements<'a>(
     }
 }
 
+fn solution_is_admissible<'a>(
+    parts: &'a [Part],
+    requirements: &'a [Requirement],
+    grid: &'a Grid,
+) -> bool {
+    false
+}
+
 fn solve1<'a>(
     parts: &'a [Part],
     requirements: &'a [Requirement],
@@ -495,28 +503,42 @@ fn solve1<'a>(
         let part = &parts[requirement.part_index];
 
         for placement in placements {
-            // Check part admissibility.
+            let mask = &if placement.compressed {
+                &part.compressed_mask
+            } else {
+                &part.uncompressed_mask
+            }
+            .rot(placement.loc.rotation);
 
-            let mut grid = grid.clone();
-            if !grid.place(
-                &if placement.compressed {
-                    &part.compressed_mask
-                } else {
-                    &part.uncompressed_mask
-                }
-                .rot(placement.loc.rotation),
+            // Check part admissibility.
+            if !placement_is_admissible(
+                mask,
                 placement.loc.position,
-                req_idx,
+                part.is_solid,
+                &grid.settings(),
+                requirement.constraint.on_command_line,
+                requirement.constraint.bugged,
             ) {
                 continue;
             }
 
-            let solutions =
-                solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>();
-            for mut solution in solutions {
-                // TODO: Check cust admissibility.
+            let mut grid = grid.clone();
+            if !grid.place(mask, placement.loc.position, req_idx) {
+                continue;
+            }
 
+            // TODO: visited set check
+
+            let solutions =
+                solve1(parts, requirements, grid.clone(), candidates.clone()).collect::<Vec<_>>();
+            for mut solution in solutions {
                 solution.push((req_idx, placement.clone()));
+
+                // Out of candidates! Do the final check.
+                if candidates.is_empty() && !solution_is_admissible(parts, requirements, &grid) {
+                    continue;
+                }
+
                 yield_!(solution);
             }
         }
