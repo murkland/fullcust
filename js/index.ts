@@ -513,7 +513,11 @@ async function main() {
             headerEl.appendChild(deleteButton);
 
             headerEl.appendChild(document.createTextNode(" "));
-            headerEl.appendChild(document.createTextNode(part.name));
+            headerEl.appendChild(
+                document.createTextNode(
+                    `${i + 1}. ${part.name}・${part.nameJa}`
+                )
+            );
 
             const constraintsEl = document.createElement("div");
             li.appendChild(constraintsEl);
