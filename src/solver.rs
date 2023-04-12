@@ -63,7 +63,6 @@ enum Cell {
 
 #[derive(Clone, Debug)]
 struct Grid {
-    placements: Vec<Placement>,
     has_oob: bool,
     command_line_row: usize,
     cells: ndarray::Array2<Cell>,
@@ -82,37 +81,30 @@ impl Grid {
         }
 
         Self {
-            placements: vec![],
             has_oob: settings.has_oob,
             command_line_row: settings.command_line_row,
             cells,
         }
     }
 
-    fn placements(&self) -> &[Placement] {
-        &self.placements
-    }
-
-    fn place(&mut self, mask: &Mask, placement: Placement) -> Result<(), PlaceError> {
-        let placement_index = self.placements.len();
-
+    fn place(
+        &mut self,
+        mask: &Mask,
+        (x, y): (isize, isize),
+        placement_index: usize,
+    ) -> Result<(), PlaceError> {
         let (h, w) = self.cells.dim();
 
-        let mut mask = std::borrow::Cow::Borrowed(mask);
-        for _ in 0..placement.loc.rotation {
-            mask = std::borrow::Cow::Owned(mask.into_owned().rot90());
-        }
-
-        let (src_x, dst_x) = if placement.loc.position.0 < 0 {
-            (-placement.loc.position.0 as usize, 0)
+        let (src_y, dst_y) = if y < 0 {
+            (-y as usize, 0)
         } else {
-            (0, placement.loc.position.0 as usize)
+            (0, y as usize)
         };
 
-        let (src_y, dst_y) = if placement.loc.position.1 < 0 {
-            (-placement.loc.position.1 as usize, 0)
+        let (src_x, dst_x) = if x < 0 {
+            (-x as usize, 0)
         } else {
-            (0, placement.loc.position.1 as usize)
+            (0, x as usize)
         };
 
         // Validate that our mask isn't being weirdly clipped.
@@ -154,8 +146,6 @@ impl Grid {
                 }
             }
         }
-
-        self.placements.push(placement);
 
         Ok(())
     }
@@ -234,28 +224,94 @@ struct PlacementCandidate {
     compressed: bool,
 }
 
+fn placement_is_admissible<'a>(
+    mask: &'a Mask,
+    (x, y): (isize, isize),
+    part_is_solid: bool,
+    grid_settings: &GridSettings,
+    on_command_line: Option<bool>,
+    bugged: Option<bool>,
+) -> bool {
+    let mut grid = Grid::new(grid_settings);
+
+    if grid.place(mask, (x, y), 0).is_err() {
+        return false;
+    }
+
+    // Optional admissibility: check if the block is appropriately on/off the command line.
+    if on_command_line != None || bugged != None {
+        let placed_on_command_line = grid
+            .cells
+            .row(grid.command_line_row)
+            .iter()
+            .any(|c| matches!(c, Cell::Placed(0)));
+
+        if on_command_line
+            .map(|on_command_line| on_command_line != placed_on_command_line)
+            .unwrap_or(false)
+        {
+            return false;
+        }
+
+        if bugged
+            .map(|bugged| !bugged || part_is_solid != placed_on_command_line)
+            .unwrap_or(false)
+        {
+            return false;
+        }
+    }
+
+    true
+}
+
 fn placement_positions_for_mask<'a>(
     mask: &'a Mask,
+    part_is_solid: bool,
     grid_settings: &GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> Vec<(isize, isize)> {
-    vec![]
+    let mut positions = vec![];
+
+    let (w, h) = mask.cells.dim();
+    let w = w as isize;
+    let h = h as isize;
+
+    for y in -h..h {
+        for x in -w..w {
+            if !placement_is_admissible(
+                mask,
+                (x, y),
+                part_is_solid,
+                grid_settings,
+                on_command_line,
+                bugged,
+            ) {
+                continue;
+            }
+
+            positions.push((x, y));
+        }
+    }
+
+    positions
 }
 
 fn placement_locations_for_mask<'a>(
     mask: &'a Mask,
+    part_is_solid: bool,
     grid_settings: &GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> Vec<Location> {
-    let mut locations = placement_positions_for_mask(mask, grid_settings, on_command_line, bugged)
-        .into_iter()
-        .map(|p| Location {
-            position: p,
-            rotation: 0,
-        })
-        .collect::<Vec<_>>();
+    let mut locations =
+        placement_positions_for_mask(mask, part_is_solid, grid_settings, on_command_line, bugged)
+            .into_iter()
+            .map(|p| Location {
+                position: p,
+                rotation: 0,
+            })
+            .collect::<Vec<_>>();
 
     // Figure out what mask rotations are necessary.
     let mut mask = mask.rot90();
@@ -270,12 +326,18 @@ fn placement_locations_for_mask<'a>(
         }
 
         locations.extend(
-            placement_positions_for_mask(&mask, grid_settings, on_command_line, bugged)
-                .into_iter()
-                .map(|p| Location {
-                    position: p,
-                    rotation: i,
-                }),
+            placement_positions_for_mask(
+                &mask,
+                part_is_solid,
+                grid_settings,
+                on_command_line,
+                bugged,
+            )
+            .into_iter()
+            .map(|p| Location {
+                position: p,
+                rotation: i,
+            }),
         );
     }
 
@@ -290,6 +352,7 @@ fn placement_candidates<'a>(
     match constraint.compressed {
         Some(true) => placement_locations_for_mask(
             &part.compressed_mask,
+            part.is_solid,
             grid_settings,
             constraint.on_command_line,
             constraint.bugged,
@@ -303,6 +366,7 @@ fn placement_candidates<'a>(
 
         Some(false) => placement_locations_for_mask(
             &part.compressed_mask,
+            part.is_solid,
             grid_settings,
             constraint.on_command_line,
             constraint.bugged,
@@ -316,6 +380,7 @@ fn placement_candidates<'a>(
 
         None if part.compressed_mask == part.uncompressed_mask => placement_locations_for_mask(
             &part.compressed_mask,
+            part.is_solid,
             grid_settings,
             constraint.on_command_line,
             constraint.bugged,
@@ -330,6 +395,7 @@ fn placement_candidates<'a>(
         None => std::iter::Iterator::chain(
             placement_locations_for_mask(
                 &part.compressed_mask,
+                part.is_solid,
                 grid_settings,
                 constraint.on_command_line,
                 constraint.bugged,
@@ -341,6 +407,7 @@ fn placement_candidates<'a>(
             }),
             placement_locations_for_mask(
                 &part.uncompressed_mask,
+                part.is_solid,
                 grid_settings,
                 constraint.on_command_line,
                 constraint.bugged,
@@ -450,19 +517,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (0, 0),
-                    rotation: 0,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
+        grid.place(&super_armor, (0, 0), 0).unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -500,18 +555,7 @@ mod tests {
         ]).unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (-1, 0),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (-1, 0), 0,),
             Err(PlaceError::SourceClipped)
         );
 
@@ -551,18 +595,7 @@ mod tests {
         ]).unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (0, 0),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (0, 0), 0),
             Err(PlaceError::DestinationClobbered)
         );
 
@@ -601,19 +634,7 @@ mod tests {
             Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (1, 0),
-                    rotation: 0,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
+        grid.place(&super_armor, (1, 0), 0).unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -640,18 +661,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (0, 0),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (0, 0), 0,),
             Err(PlaceError::DestinationClobbered)
         );
     }
@@ -684,68 +694,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (0, 0),
-                    rotation: 0,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(grid.cells, expected_repr);
-    }
-
-    #[test]
-    fn test_grid_place_rot() {
-        let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
-            has_oob: false,
-            command_line_row: 3,
-        });
-        let super_armor = Mask::new(
-            (7, 7),
-            vec![
-                true, false, false, false, false, false, false, //
-                true, true, false, false, false, false, false, //
-                true, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-            ],
-        )
-        .unwrap();
-
-        #[rustfmt::skip]
-        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Placed(0), Cell::Placed(0), Cell::Placed(0),
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Placed(0), Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-        ]).unwrap();
-
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (0, 0),
-                    rotation: 1,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
+        grid.place(&super_armor, (0, 0), 0).unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -782,19 +731,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (1, 0),
-                    rotation: 0,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
+        grid.place(&super_armor, (1, 0), 0).unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -831,19 +768,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(
-            &super_armor,
-            Placement {
-                loc: Location {
-                    position: (-1, 0),
-                    rotation: 0,
-                },
-                requirement_index: 0,
-                color: 0,
-                compressed: false,
-            },
-        )
-        .unwrap();
+        grid.place(&super_armor, (-1, 0), 0).unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -870,18 +795,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (-1, -1),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (-1, -1), 0,),
             Err(PlaceError::SourceClipped)
         );
     }
@@ -909,18 +823,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (6, 0),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (6, 0), 0,),
             Err(PlaceError::SourceClipped)
         );
     }
@@ -949,18 +852,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(
-                &super_armor,
-                Placement {
-                    loc: Location {
-                        position: (0, 0),
-                        rotation: 0,
-                    },
-                    requirement_index: 0,
-                    color: 0,
-                    compressed: false,
-                },
-            ),
+            grid.place(&super_armor, (0, 0), 0,),
             Err(PlaceError::DestinationClobbered)
         );
     }
