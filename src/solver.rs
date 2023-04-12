@@ -18,6 +18,14 @@ impl Mask {
         Mask { cells }
     }
 
+    fn rot<'a>(&'a self, num: usize) -> std::borrow::Cow<'a, Self> {
+        let mut mask = std::borrow::Cow::Borrowed(self);
+        for _ in 0..num {
+            mask = std::borrow::Cow::Owned(mask.rot90());
+        }
+        mask
+    }
+
     fn trimmed(&self) -> Self {
         let (h, w) = self.cells.dim();
 
@@ -64,14 +72,6 @@ pub struct Position {
 pub struct Location {
     pub position: Position,
     pub rotation: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct Placement {
-    pub requirement_index: usize,
-    pub loc: Location,
-    pub color: usize,
-    pub compressed: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -129,7 +129,7 @@ impl Grid {
         &mut self,
         mask: &Mask,
         pos: Position,
-        placement_index: usize,
+        requirement_index: usize,
     ) -> Result<(), PlaceError> {
         let (h, w) = self.cells.dim();
 
@@ -180,7 +180,7 @@ impl Grid {
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
                 if *src {
-                    *dst = Cell::Placed(placement_index);
+                    *dst = Cell::Placed(requirement_index);
                 }
             }
         }
@@ -192,7 +192,6 @@ impl Grid {
 #[derive(Debug, Clone)]
 pub struct Part {
     pub is_solid: bool,
-    pub colors: Vec<usize>,
     pub compressed_mask: Mask,
     pub uncompressed_mask: Mask,
 }
@@ -200,6 +199,7 @@ pub struct Part {
 #[derive(Debug, Clone)]
 pub struct Requirement {
     pub part_index: usize,
+    pub color: usize,
     pub constraint: Constraint,
 }
 
@@ -258,9 +258,9 @@ pub struct GridSettings {
 }
 
 #[derive(Debug, Clone)]
-struct PlacementCandidate {
-    loc: Location,
-    compressed: bool,
+pub struct Placement {
+    pub loc: Location,
+    pub compressed: bool,
 }
 
 fn placement_is_admissible<'a>(
@@ -412,11 +412,11 @@ fn placement_locations_for_mask<'a>(
     locations
 }
 
-fn placement_candidates<'a>(
+fn placements<'a>(
     part: &'a Part,
     grid_settings: &GridSettings,
     constraint: &Constraint,
-) -> Vec<PlacementCandidate> {
+) -> Vec<Placement> {
     match constraint.compressed {
         Some(true) => placement_locations_for_mask(
             &part.compressed_mask,
@@ -426,7 +426,7 @@ fn placement_candidates<'a>(
             constraint.bugged,
         )
         .into_iter()
-        .map(|loc| PlacementCandidate {
+        .map(|loc| Placement {
             loc,
             compressed: true,
         })
@@ -440,7 +440,7 @@ fn placement_candidates<'a>(
             constraint.bugged,
         )
         .into_iter()
-        .map(|loc| PlacementCandidate {
+        .map(|loc| Placement {
             loc,
             compressed: false,
         })
@@ -454,7 +454,7 @@ fn placement_candidates<'a>(
             constraint.bugged,
         )
         .into_iter()
-        .map(|loc| PlacementCandidate {
+        .map(|loc| Placement {
             loc,
             compressed: true,
         })
@@ -469,7 +469,7 @@ fn placement_candidates<'a>(
                 constraint.bugged,
             )
             .into_iter()
-            .map(|loc| PlacementCandidate {
+            .map(|loc| Placement {
                 loc,
                 compressed: true,
             }),
@@ -481,7 +481,7 @@ fn placement_candidates<'a>(
                 constraint.bugged,
             )
             .into_iter()
-            .map(|loc| PlacementCandidate {
+            .map(|loc| Placement {
                 loc,
                 compressed: false,
             }),
@@ -494,21 +494,44 @@ fn solve1<'a>(
     parts: &'a [Part],
     requirements: &'a [Requirement],
     grid: Grid,
-    mut candidates: Vec<(usize, Vec<PlacementCandidate>)>,
-) -> impl Iterator<Item = Solution> + 'a {
+    mut candidates: Vec<(usize, Vec<Placement>)>,
+) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'a {
     genawaiter::rc::gen!({
-        let (req_idx, placement_candidates) = if let Some(candidate) = candidates.pop() {
+        let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
             candidate
         } else {
+            // TODO: Check cust admissibility.
             return;
         };
 
         let requirement = &requirements[req_idx];
         let part = &parts[requirement.part_index];
 
-        for placement_candidate in placement_candidates {
-            let grid = grid.clone();
-            let n = solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>();
+        for placement in placements {
+            // Check admissibility.
+
+            let mut grid = grid.clone();
+            if grid
+                .place(
+                    &if placement.compressed {
+                        &part.compressed_mask
+                    } else {
+                        &part.uncompressed_mask
+                    }
+                    .rot(placement.loc.rotation),
+                    placement.loc.position,
+                    req_idx,
+                )
+                .is_err()
+            {
+                continue;
+            }
+
+            for mut solution in
+                solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>()
+            {
+                solution.push((req_idx, placement.clone()));
+            }
         }
     })
     .into_iter()
@@ -529,7 +552,7 @@ pub fn solve<'a>(
         .map(|(i, req)| {
             (
                 i,
-                placement_candidates(&parts[req.part_index], settings, &req.constraint),
+                placements(&parts[req.part_index], settings, &req.constraint),
             )
         })
         .collect::<Vec<_>>();
@@ -539,7 +562,13 @@ pub fn solve<'a>(
     // If two blocks are just as hard to fit, make sure to group ones of the same type together.
     candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
-    Some(solve1(parts, requirements, Grid::new(settings), candidates))
+    Some(
+        solve1(parts, requirements, Grid::new(settings), candidates).map(|mut solution| {
+            solution.sort_by_key(|(i, _)| *i);
+            assert!(solution.len() == requirements.len());
+            solution.into_iter().map(|(_, p)| p).collect()
+        }),
+    )
 }
 
 #[cfg(test)]
