@@ -8,6 +8,11 @@ async function main() {
     const queryParams = new URLSearchParams(location.search);
     const game = queryParams.get("game") || "bn6";
 
+    document
+        .getElementById("games-nav")
+        .querySelector(`a[href='?game=${game}']`)
+        .classList.add("active");
+
     const data = await import(`./${game}.json`);
     const gridSettings: GridSettings = data.gridSettings;
 
