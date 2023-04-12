@@ -24,14 +24,42 @@ impl Mask {
     }
 
     fn trimmed(&self) -> Self {
-        // TODO: Implement this.
+        let (h, w) = self.cells.dim();
+
+        let left = (0..w)
+            .filter(|i| self.cells.column(*i).iter().any(|v| *v))
+            .next()
+            .unwrap_or(0);
+
+        let top = (0..h)
+            .filter(|i| self.cells.row(*i).iter().any(|v| *v))
+            .next()
+            .unwrap_or(0);
+
+        let right = (0..w)
+            .rev()
+            .filter(|i| self.cells.column(*i).iter().any(|v| *v))
+            .next()
+            .unwrap_or(w - 1)
+            + 1;
+
+        let bottom = (0..h)
+            .rev()
+            .filter(|i| self.cells.row(*i).iter().any(|v| *v))
+            .next()
+            .unwrap_or(h - 1)
+            + 1;
+
         Mask {
-            cells: self.cells.clone(),
+            cells: self
+                .cells
+                .slice(ndarray::s![top..bottom, left..right])
+                .into_owned(),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
     pub position: (isize, isize),
     pub rotation: usize,
@@ -233,9 +261,37 @@ fn placement_is_admissible<'a>(
     bugged: Option<bool>,
 ) -> bool {
     let mut grid = Grid::new(grid_settings);
+    let (h, w) = grid.cells.dim();
 
     if grid.place(mask, (x, y), 0).is_err() {
         return false;
+    }
+
+    // Optional admissibility: check if the block is appropriately in/out of bounds.
+    if bugged == Some(false) && grid_settings.has_oob {
+        if grid
+            .cells
+            .row(0)
+            .iter()
+            .any(|cell| matches!(cell, Cell::Placed(0)))
+            || grid
+                .cells
+                .column(0)
+                .iter()
+                .any(|cell| matches!(cell, Cell::Placed(0)))
+            || grid
+                .cells
+                .row(h - 1)
+                .iter()
+                .any(|cell| matches!(cell, Cell::Placed(0)))
+            || grid
+                .cells
+                .column(w - 1)
+                .iter()
+                .any(|cell| matches!(cell, Cell::Placed(0)))
+        {
+            return false;
+        }
     }
 
     // Optional admissibility: check if the block is appropriately on/off the command line.
@@ -254,7 +310,7 @@ fn placement_is_admissible<'a>(
         }
 
         if bugged
-            .map(|bugged| !bugged || part_is_solid != placed_on_command_line)
+            .map(|bugged| !bugged && part_is_solid != placed_on_command_line)
             .unwrap_or(false)
         {
             return false;
@@ -277,8 +333,8 @@ fn placement_positions_for_mask<'a>(
     let w = w as isize;
     let h = h as isize;
 
-    for y in -h..h {
-        for x in -w..w {
+    for y in (-h + 1)..h {
+        for x in (-w + 1)..w {
             if !placement_is_admissible(
                 mask,
                 (x, y),
@@ -314,13 +370,13 @@ fn placement_locations_for_mask<'a>(
             .collect::<Vec<_>>();
 
     // Figure out what mask rotations are necessary.
-    let mut mask = mask.rot90();
+    let mut mask = std::borrow::Cow::Borrowed(mask);
 
     let mut known_masks = std::collections::HashSet::new();
     known_masks.insert(mask.trimmed());
 
     for i in 1..4 {
-        mask = mask.rot90();
+        mask = std::borrow::Cow::Owned(mask.rot90());
         if known_masks.contains(&mask.trimmed()) {
             break;
         }
@@ -855,5 +911,232 @@ mod tests {
             grid.place(&super_armor, (0, 0), 0,),
             Err(PlaceError::DestinationClobbered)
         );
+    }
+
+    #[test]
+    fn test_placement_positions_for_mask() {
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement_positions_for_mask(
+                &super_armor,
+                true,
+                &GridSettings {
+                    size: (7, 7),
+                    has_oob: true,
+                    command_line_row: 3,
+                },
+                None,
+                None,
+            ),
+            vec![
+                (1, 0),
+                (2, 0),
+                (3, 0),
+                (4, 0),
+                (5, 0),
+                (0, 1),
+                (1, 1),
+                (2, 1),
+                (3, 1),
+                (4, 1),
+                (5, 1),
+                (0, 2),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (4, 2),
+                (5, 2),
+                (0, 3),
+                (1, 3),
+                (2, 3),
+                (3, 3),
+                (4, 3),
+                (5, 3),
+                (1, 4),
+                (2, 4),
+                (3, 4),
+                (4, 4),
+                (5, 4)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_placement_positions_for_mask_on_command_line() {
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement_positions_for_mask(
+                &super_armor,
+                true,
+                &GridSettings {
+                    size: (7, 7),
+                    has_oob: true,
+                    command_line_row: 3,
+                },
+                Some(true),
+                None,
+            ),
+            vec![
+                (0, 1),
+                (1, 1),
+                (2, 1),
+                (3, 1),
+                (4, 1),
+                (5, 1),
+                (0, 2),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (4, 2),
+                (5, 2),
+                (0, 3),
+                (1, 3),
+                (2, 3),
+                (3, 3),
+                (4, 3),
+                (5, 3)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_placement_positions_for_mask_not_bugged() {
+        let super_armor = Mask::new(
+            (7, 7),
+            vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement_positions_for_mask(
+                &super_armor,
+                true,
+                &GridSettings {
+                    size: (7, 7),
+                    has_oob: true,
+                    command_line_row: 3,
+                },
+                None,
+                Some(false),
+            ),
+            vec![
+                (1, 1),
+                (2, 1),
+                (3, 1),
+                (4, 1),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (4, 2),
+                (1, 3),
+                (2, 3),
+                (3, 3),
+                (4, 3)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_placement_locations_for_mask() {
+        let super_armor = Mask::new(
+            (3, 3),
+            vec![
+                true, false, false, //
+                true, false, false, //
+                true, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement_locations_for_mask(
+                &super_armor,
+                true,
+                &GridSettings {
+                    size: (3, 3),
+                    has_oob: false,
+                    command_line_row: 1,
+                },
+                None,
+                Some(false),
+            ),
+            vec![
+                Location {
+                    position: (0, 0),
+                    rotation: 0
+                },
+                Location {
+                    position: (1, 0),
+                    rotation: 0
+                },
+                Location {
+                    position: (2, 0),
+                    rotation: 0
+                },
+                Location {
+                    position: (0, 1),
+                    rotation: 1
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_mask_trimmed() {
+        let super_armor = Mask::new(
+            (3, 3),
+            vec![
+                true, false, false, //
+                true, false, false, //
+                true, false, false, //
+            ],
+        )
+        .unwrap();
+
+        let expected_super_armor = Mask::new(
+            (3, 1),
+            vec![
+                true, //
+                true, //
+                true, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(super_armor.trimmed(), expected_super_armor);
     }
 }
