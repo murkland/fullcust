@@ -528,7 +528,7 @@ fn solve1<'a>(
                 continue;
             }
 
-            // TODO: visited set check
+            // If we've already seen this configuration but this is just a different configuration of placements (e.g. placement at index 2 and 3 swapped around), don't bother searching further.
             let parts_string = grid
                 .cells
                 .iter()
@@ -539,7 +539,6 @@ fn solve1<'a>(
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-            // If we've already seen this configuration but this is just a different configuration of placements (e.g. placement at index 2 and 3 swapped around), don't bother searching further.
             {
                 let mut visited = visited.borrow_mut();
                 if visited.contains(&parts_string) {
