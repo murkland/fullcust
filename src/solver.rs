@@ -12,7 +12,7 @@ impl Mask {
         })
     }
 
-    fn rot90(&self) -> Self {
+    fn rotate90(&self) -> Self {
         let mut cells = self.cells.t().as_standard_layout().into_owned();
         for row in cells.rows_mut() {
             row.into_slice().unwrap().reverse();
@@ -20,10 +20,10 @@ impl Mask {
         Mask { cells }
     }
 
-    fn rot<'a>(&'a self, num: usize) -> std::borrow::Cow<'a, Self> {
+    fn rotate<'a>(&'a self, num: usize) -> std::borrow::Cow<'a, Self> {
         let mut mask = std::borrow::Cow::Borrowed(self);
         for _ in 0..num {
-            mask = std::borrow::Cow::Owned(mask.rot90());
+            mask = std::borrow::Cow::Owned(mask.rotate90());
         }
         mask
     }
@@ -376,7 +376,7 @@ fn placement_locations_for_mask<'a>(
     known_masks.insert(mask.trimmed());
 
     for i in 1..4 {
-        mask = std::borrow::Cow::Owned(mask.rot90());
+        mask = std::borrow::Cow::Owned(mask.rotate90());
         if known_masks.contains(&mask.trimmed()) {
             break;
         }
@@ -561,7 +561,7 @@ fn solve1<'a>(
             } else {
                 &part.uncompressed_mask
             }
-            .rot(placement.loc.rotation);
+            .rotate(placement.loc.rotation);
 
             let mut grid = grid.clone();
             if !grid.place(mask, placement.loc.position, req_idx) {
@@ -680,7 +680,7 @@ mod tests {
             ],
         )
         .unwrap();
-        let mask = mask.rot90();
+        let mask = mask.rotate90();
         assert_eq!(
             mask,
             Mask::new(
