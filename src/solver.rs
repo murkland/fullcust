@@ -99,20 +99,29 @@ struct Grid {
 
 impl Grid {
     fn new(settings: &GridSettings) -> Self {
-        let mut cells = ndarray::Array2::from_elem(settings.size, Cell::Empty);
+        let mut cells = ndarray::Array2::from_elem((settings.height, settings.width), Cell::Empty);
 
         if settings.has_oob {
-            let (w, h) = settings.size;
             cells[[0, 0]] = Cell::Forbidden;
-            cells[[w - 1, 0]] = Cell::Forbidden;
-            cells[[0, h - 1]] = Cell::Forbidden;
-            cells[[w - 1, h - 1]] = Cell::Forbidden;
+            cells[[settings.width - 1, 0]] = Cell::Forbidden;
+            cells[[0, settings.height - 1]] = Cell::Forbidden;
+            cells[[settings.width - 1, settings.height - 1]] = Cell::Forbidden;
         }
 
         Self {
             has_oob: settings.has_oob,
             command_line_row: settings.command_line_row,
             cells,
+        }
+    }
+
+    fn settings(&self) -> GridSettings {
+        let (h, w) = self.cells.dim();
+        GridSettings {
+            width: w,
+            height: h,
+            has_oob: self.has_oob,
+            command_line_row: self.command_line_row,
         }
     }
 
@@ -208,20 +217,19 @@ fn requirements_are_admissible<'a>(
     requirements: &'a [Requirement],
     grid_settings: &GridSettings,
 ) -> bool {
-    let (w, h) = grid_settings.size;
-
     // Mandatory check: blocks required to be on the command line must be less than or equal to the number of columns.
     if requirements
         .iter()
         .filter(|req| req.constraint.on_command_line == Some(true))
         .count()
-        > w
+        > grid_settings.width
     {
         return false;
     }
 
     // Mandatory check: total number of squares must be less than the total allowed space.
-    let max_empty_cells = w * h - if grid_settings.has_oob { 4 } else { 0 };
+    let max_empty_cells =
+        grid_settings.width * grid_settings.height - if grid_settings.has_oob { 4 } else { 0 };
     if requirements
         .iter()
         .map(|req| {
@@ -243,11 +251,13 @@ fn requirements_are_admissible<'a>(
 
 #[derive(Debug, Clone)]
 pub struct GridSettings {
-    pub size: (usize, usize),
+    pub height: usize,
+    pub width: usize,
     pub has_oob: bool,
     pub command_line_row: usize,
 }
 
+#[derive(Debug, Clone)]
 struct PlacementCandidate {
     loc: Location,
     compressed: bool,
@@ -480,29 +490,56 @@ fn placement_candidates<'a>(
     }
 }
 
+fn solve1<'a>(
+    parts: &'a [Part],
+    requirements: &'a [Requirement],
+    grid: Grid,
+    mut candidates: Vec<(usize, Vec<PlacementCandidate>)>,
+) -> impl Iterator<Item = Solution> + 'a {
+    genawaiter::rc::gen!({
+        let (req_idx, placement_candidates) = if let Some(candidate) = candidates.pop() {
+            candidate
+        } else {
+            return;
+        };
+
+        let requirement = &requirements[req_idx];
+        let part = &parts[requirement.part_index];
+
+        for placement_candidate in placement_candidates {
+            let grid = grid.clone();
+            let n = solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>();
+        }
+    })
+    .into_iter()
+}
+
 pub fn solve<'a>(
     parts: &'a [Part],
     requirements: &'a [Requirement],
     settings: &'a GridSettings,
-) -> impl Iterator<Item = Solution> + 'a {
-    genawaiter::rc::gen!({
-        if !requirements_are_admissible(parts, requirements, settings) {
-            return;
-        }
+) -> Option<impl Iterator<Item = Solution> + 'a> {
+    if !requirements_are_admissible(parts, requirements, settings) {
+        return None;
+    }
 
-        let grid = Grid::new(settings);
+    let mut candidates = requirements
+        .iter()
+        .enumerate()
+        .map(|(i, req)| {
+            (
+                i,
+                placement_candidates(&parts[req.part_index], settings, &req.constraint),
+            )
+        })
+        .collect::<Vec<_>>();
 
-        let mut part_placement_candidates = std::collections::HashMap::new();
+    // Heuristic: fit hard to fit blocks first, then easier ones.
+    //
+    // If two blocks are just as hard to fit, make sure to group ones of the same type together.
+    candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
-        for (req_idx, req) in requirements.iter().enumerate() {
-            part_placement_candidates
-                .entry(req.part_index)
-                .or_insert_with(|| {
-                    placement_candidates(&parts[req.part_index], settings, &req.constraint)
-                });
-        }
-    })
-    .into_iter()
+    Some(solve1(parts, requirements, Grid::new(settings), candidates))
 }
 
 #[cfg(test)]
@@ -546,7 +583,8 @@ mod tests {
     #[test]
     fn test_grid_place() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -584,7 +622,8 @@ mod tests {
     #[test]
     fn test_grid_place_error_source_clipped_does_not_mutate() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -624,7 +663,8 @@ mod tests {
     #[test]
     fn test_grid_place_error_destination_clobbered_does_not_mutate() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: true,
             command_line_row: 3,
         });
@@ -664,7 +704,8 @@ mod tests {
     #[test]
     fn test_grid_place_oob() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: true,
             command_line_row: 3,
         });
@@ -702,7 +743,8 @@ mod tests {
     #[test]
     fn test_grid_place_forbidden() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: true,
             command_line_row: 3,
         });
@@ -729,7 +771,8 @@ mod tests {
     #[test]
     fn test_grid_place_different_sizes() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -763,7 +806,8 @@ mod tests {
     #[test]
     fn test_grid_place_nonzero_pos() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -801,7 +845,8 @@ mod tests {
     #[test]
     fn test_grid_place_neg_pos() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -839,7 +884,8 @@ mod tests {
     #[test]
     fn test_grid_place_source_clipped() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -866,7 +912,8 @@ mod tests {
     #[test]
     fn test_grid_place_source_clipped_other_side() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -894,7 +941,8 @@ mod tests {
     #[test]
     fn test_grid_destination_clobbered() {
         let mut grid = Grid::new(&GridSettings {
-            size: (7, 7),
+            height: 7,
+            width: 7,
             has_oob: false,
             command_line_row: 3,
         });
@@ -941,7 +989,8 @@ mod tests {
                 &super_armor,
                 true,
                 &GridSettings {
-                    size: (7, 7),
+                    height: 7,
+                    width: 7,
                     has_oob: true,
                     command_line_row: 3,
                 },
@@ -1002,7 +1051,8 @@ mod tests {
                 &super_armor,
                 true,
                 &GridSettings {
-                    size: (7, 7),
+                    height: 7,
+                    width: 7,
                     has_oob: true,
                     command_line_row: 3,
                 },
@@ -1053,7 +1103,8 @@ mod tests {
                 &super_armor,
                 true,
                 &GridSettings {
-                    size: (7, 7),
+                    height: 7,
+                    width: 7,
                     has_oob: true,
                     command_line_row: 3,
                 },
@@ -1094,7 +1145,8 @@ mod tests {
                 &super_armor,
                 true,
                 &GridSettings {
-                    size: (3, 3),
+                    height: 3,
+                    width: 3,
                     has_oob: false,
                     command_line_row: 1,
                 },
