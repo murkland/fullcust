@@ -88,3 +88,31 @@ export function placeAll(
         })
     );
 }
+
+export function convertParts(
+    rawParts: {
+        isSolid: boolean;
+        color: number;
+        compressedMask: number[];
+        uncompressedMask: number[];
+    }[],
+    height: number,
+    width: number
+): Part[] {
+    return rawParts.map(
+        ({ isSolid, color, compressedMask, uncompressedMask }) => ({
+            isSolid,
+            color,
+            compressedMask: {
+                height,
+                width,
+                cells: compressedMask.map((v) => !!v),
+            },
+            uncompressedMask: {
+                height,
+                width,
+                cells: uncompressedMask.map((v) => !!v),
+            },
+        })
+    );
+}

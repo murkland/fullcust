@@ -1,31 +1,9 @@
-import { GridSettings, Part, placeAll, Requirement, solve } from "./solver";
+import data from "./bn6.json";
+import { convertParts, GridSettings, placeAll, Requirement, solve } from "./solver";
 
-const parts: Part[] = [
-    {
-        isSolid: true,
-        color: 0,
-        compressedMask: {
-            width: 2,
-            height: 3,
-            cells: [true, false, true, true, true, false],
-        },
-        uncompressedMask: {
-            width: 2,
-            height: 3,
-            cells: [true, false, true, true, true, false],
-        },
-    },
-];
+const parts = convertParts(data.parts, 7, 7);
 
 const requirements: Requirement[] = [
-    {
-        partIndex: 0,
-        constraint: {
-            bugged: false,
-            compressed: null,
-            onCommandLine: true,
-        },
-    },
     {
         partIndex: 0,
         constraint: {
