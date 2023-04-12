@@ -76,15 +76,6 @@ pub struct Location {
     pub rotation: usize,
 }
 
-#[derive(thiserror::Error, Debug)]
-enum PlaceError {
-    #[error("destination clobbered")]
-    DestinationClobbered,
-
-    #[error("source clipped")]
-    SourceClipped,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Cell {
     Empty,
@@ -127,12 +118,7 @@ impl Grid {
         }
     }
 
-    fn place(
-        &mut self,
-        mask: &Mask,
-        pos: Position,
-        requirement_index: usize,
-    ) -> Result<(), PlaceError> {
+    fn place(&mut self, mask: &Mask, pos: Position, requirement_index: usize) -> bool {
         let (h, w) = self.cells.dim();
 
         let (src_y, dst_y) = if pos.y < 0 {
@@ -156,7 +142,7 @@ impl Grid {
                 }
 
                 if v {
-                    return Err(PlaceError::SourceClipped);
+                    return false;
                 }
             }
         }
@@ -168,7 +154,7 @@ impl Grid {
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
                 if *src && !matches!(dst, Cell::Empty) {
-                    return Err(PlaceError::DestinationClobbered);
+                    return false;
                 }
             }
         }
@@ -187,7 +173,7 @@ impl Grid {
             }
         }
 
-        Ok(())
+        true
     }
 }
 
@@ -276,7 +262,7 @@ fn placement_is_admissible<'a>(
     let mut grid = Grid::new(grid_settings);
     let (h, w) = grid.cells.dim();
 
-    if grid.place(mask, pos, 0).is_err() {
+    if !grid.place(mask, pos, 0) {
         return false;
     }
 
@@ -512,19 +498,16 @@ fn solve1<'a>(
             // Check part admissibility.
 
             let mut grid = grid.clone();
-            if grid
-                .place(
-                    &if placement.compressed {
-                        &part.compressed_mask
-                    } else {
-                        &part.uncompressed_mask
-                    }
-                    .rot(placement.loc.rotation),
-                    placement.loc.position,
-                    req_idx,
-                )
-                .is_err()
-            {
+            if !grid.place(
+                &if placement.compressed {
+                    &part.compressed_mask
+                } else {
+                    &part.uncompressed_mask
+                }
+                .rot(placement.loc.rotation),
+                placement.loc.position,
+                req_idx,
+            ) {
                 continue;
             }
 
@@ -646,9 +629,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
-            .unwrap();
-
+        assert!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0));
         assert_eq!(grid.cells, expected_repr);
     }
 
@@ -685,9 +666,9 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        assert_matches::assert_matches!(
+        assert_eq!(
             grid.place(&super_armor, Position { x: -1, y: 0 }, 0,),
-            Err(PlaceError::SourceClipped)
+            false
         );
 
         assert_eq!(grid.cells, expected_repr);
@@ -726,10 +707,7 @@ mod tests {
             Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
-        assert_matches::assert_matches!(
-            grid.place(&super_armor, Position { x: 0, y: 0 }, 0),
-            Err(PlaceError::DestinationClobbered)
-        );
+        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0), false);
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -767,9 +745,7 @@ mod tests {
             Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
-        grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
-            .unwrap();
-
+        assert!(grid.place(&super_armor, Position { x: 1, y: 0 }, 0));
         assert_eq!(grid.cells, expected_repr);
     }
 
@@ -795,10 +771,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_matches::assert_matches!(
-            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
-            Err(PlaceError::DestinationClobbered)
-        );
+        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
     }
 
     #[test]
@@ -830,9 +803,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
-            .unwrap();
-
+        assert!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0));
         assert_eq!(grid.cells, expected_repr);
     }
 
@@ -869,9 +840,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
-            .unwrap();
-
+        assert!(grid.place(&super_armor, Position { x: 1, y: 0 }, 0));
         assert_eq!(grid.cells, expected_repr);
     }
 
@@ -908,9 +877,7 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, Position { x: -1, y: 0 }, 0)
-            .unwrap();
-
+        assert!(grid.place(&super_armor, Position { x: -1, y: 0 }, 0));
         assert_eq!(grid.cells, expected_repr);
     }
 
@@ -936,9 +903,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_matches::assert_matches!(
+        assert_eq!(
             grid.place(&super_armor, Position { x: -1, y: 1 }, 0,),
-            Err(PlaceError::SourceClipped)
+            false
         );
     }
 
@@ -965,10 +932,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_matches::assert_matches!(
-            grid.place(&super_armor, Position { x: 6, y: 0 }, 0,),
-            Err(PlaceError::SourceClipped)
-        );
+        assert_eq!(grid.place(&super_armor, Position { x: 6, y: 0 }, 0,), false);
     }
 
     #[test]
@@ -995,10 +959,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_matches::assert_matches!(
-            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
-            Err(PlaceError::DestinationClobbered)
-        );
+        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
     }
 
     #[test]
