@@ -7,20 +7,35 @@ const dist = path.resolve(__dirname, "dist");
 module.exports = {
     mode: "production",
     entry: {
-        index: "./js/index.js",
+        index: "./index.ts",
+    },
+    module: {
+        rules: [
+            {
+                test: /\.tsx?$/,
+                use: "ts-loader",
+                exclude: /node_modules/,
+            },
+        ],
+    },
+    resolve: {
+        extensions: [".tsx", ".ts", ".js"],
     },
     output: {
         path: dist,
         filename: "[name].js",
     },
     devServer: {
-        contentBase: dist,
+        static: dist,
     },
     plugins: [
-        new CopyPlugin([path.resolve(__dirname, "static")]),
+        new CopyPlugin({ patterns: [path.resolve(__dirname, "static")] }),
 
         new WasmPackPlugin({
             crateDirectory: __dirname,
         }),
     ],
+    experiments: {
+        asyncWebAssembly: true,
+    },
 };

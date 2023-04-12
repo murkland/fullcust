@@ -3,19 +3,28 @@ mod solver;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct Parts(Vec<solver::Part>);
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolveArgs {
+    parts: Vec<solver::Part>,
+    requirements: Vec<solver::Requirement>,
+    grid_settings: solver::GridSettings,
+}
 
 #[wasm_bindgen]
-pub struct Requirements(Vec<solver::Requirement>);
-
-#[wasm_bindgen]
-pub struct GridSettings(solver::GridSettings);
+impl SolveArgs {
+    #[wasm_bindgen(js_name = fromJs)]
+    pub fn from_js(v: JsValue) -> Result<SolveArgs, serde_wasm_bindgen::Error> {
+        serde_wasm_bindgen::from_value(v)
+    }
+}
 
 #[wasm_bindgen]
 pub struct Solution(solver::Solution);
 
 #[wasm_bindgen]
 impl Solution {
+    #[wasm_bindgen(js_name = toJs)]
     pub fn to_js(&self) -> JsValue {
         serde_wasm_bindgen::to_value(&self.0).unwrap()
     }
@@ -32,8 +41,12 @@ impl SolutionIterator {
 }
 
 #[wasm_bindgen]
-pub fn solve(parts: Parts, requirements: Requirements, settings: GridSettings) -> SolutionIterator {
-    SolutionIterator(Box::new(solver::solve(parts.0, requirements.0, settings.0)))
+pub fn solve(args: SolveArgs) -> SolutionIterator {
+    SolutionIterator(Box::new(solver::solve(
+        args.parts,
+        args.requirements,
+        args.grid_settings,
+    )))
 }
 
 pub fn main() -> Result<(), anyhow::Error> {

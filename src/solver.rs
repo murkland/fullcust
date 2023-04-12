@@ -1,6 +1,7 @@
 use genawaiter::yield_;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Mask {
     cells: Vec<bool>,
     height: usize,
@@ -83,12 +84,14 @@ impl Mask {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Position {
     pub x: isize,
     pub y: isize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Location {
     pub position: Position,
     pub rotation: usize,
@@ -198,6 +201,7 @@ impl Grid {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Part {
     pub is_solid: bool,
     pub color: usize,
@@ -206,12 +210,14 @@ pub struct Part {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Requirement {
     pub part_index: usize,
     pub constraint: Constraint,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Constraint {
     pub compressed: Option<bool>,
     pub on_command_line: Option<bool>,
@@ -258,6 +264,7 @@ fn requirements_are_admissible<'a>(
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GridSettings {
     pub height: usize,
     pub width: usize,
@@ -266,6 +273,7 @@ pub struct GridSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Placement {
     pub loc: Location,
     pub compressed: bool,
@@ -645,6 +653,10 @@ pub fn solve(
     settings: GridSettings,
 ) -> impl Iterator<Item = Solution> + 'static {
     genawaiter::rc::gen!({
+        if settings.command_line_row >= settings.height {
+            return;
+        }
+
         let num_requirements = requirements.len();
 
         if !requirements_are_admissible(&parts, &requirements, settings) {

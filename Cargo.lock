@@ -67,7 +67,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasm-log",
- "web-sys",
 ]
 
 [[package]]
