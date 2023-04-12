@@ -46,11 +46,13 @@ export interface Placement {
     compressed: boolean;
 }
 
+export type Solution = Placement[];
+
 export function* solve(
     parts: Part[],
     requirements: Requirement[],
     gridSettings: GridSettings
-): Iterable<Placement> {
+): Iterable<Solution> {
     const it = bindings.solve(
         bindings.SolveArgs.fromJs({
             parts,
@@ -65,4 +67,20 @@ export function* solve(
         }
         yield solution.toJs();
     }
+}
+
+export function placeAll(
+    parts: Part[],
+    requirements: Requirement[],
+    placements: Placement[],
+    gridSettings: GridSettings
+) {
+    return bindings.placeAll(
+        bindings.PlaceAllArgs.fromJs({
+            parts,
+            requirements,
+            placements,
+            gridSettings,
+        })
+    );
 }

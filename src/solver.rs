@@ -19,7 +19,7 @@ impl Mask {
             row.into_slice().unwrap().reverse();
         }
 
-        let (width, height) = ndarray.dim();
+        let (height, width) = ndarray.dim();
         Mask {
             width,
             height,
@@ -639,19 +639,51 @@ fn solve1(
     .into_iter()
 }
 
+pub fn place_all(
+    parts: &[&Part],
+    requirements: &[&Requirement],
+    placements: &[&Placement],
+    grid_settings: GridSettings,
+) -> Option<Vec<Option<usize>>> {
+    let mut grid = Grid::new(grid_settings);
+    for (req_idx, placement) in placements.iter().enumerate() {
+        let req = &requirements[req_idx];
+        let part = &parts[req.part_index];
+        let mask = &if placement.compressed {
+            &part.compressed_mask
+        } else {
+            &part.uncompressed_mask
+        }
+        .rotate(placement.loc.rotation);
+        if !grid.place(mask, placement.loc.position, req_idx) {
+            return None;
+        }
+    }
+
+    Some(
+        grid.cells
+            .into_iter()
+            .map(|x| match x {
+                Cell::Empty | Cell::Forbidden => None,
+                Cell::Placed(req_idx) => Some(req_idx),
+            })
+            .collect(),
+    )
+}
+
 pub fn solve(
     parts: Vec<Part>,
     requirements: Vec<Requirement>,
-    settings: GridSettings,
+    grid_settings: GridSettings,
 ) -> impl Iterator<Item = Solution> + 'static {
     genawaiter::rc::gen!({
-        if settings.command_line_row >= settings.height {
+        if grid_settings.command_line_row >= grid_settings.height {
             return;
         }
 
         let num_requirements = requirements.len();
 
-        if !requirements_are_admissible(&parts, &requirements, settings) {
+        if !requirements_are_admissible(&parts, &requirements, grid_settings) {
             return;
         }
 
@@ -661,7 +693,7 @@ pub fn solve(
             .map(|(i, req)| {
                 (
                     i,
-                    placements(&parts[req.part_index], settings, &req.constraint),
+                    placements(&parts[req.part_index], grid_settings, &req.constraint),
                 )
             })
             .collect::<Vec<_>>();
@@ -674,7 +706,7 @@ pub fn solve(
         for mut solution in solve1(
             std::rc::Rc::new(parts),
             std::rc::Rc::new(requirements),
-            Grid::new(settings),
+            Grid::new(grid_settings),
             candidates,
             std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashSet::new())),
         ) {
