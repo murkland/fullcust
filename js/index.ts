@@ -368,34 +368,69 @@ async function main() {
         const spinner = createSpinner(gridSettings);
         results.appendChild(spinner);
 
+        const it = solver[Symbol.asyncIterator]();
+
         (async () => {
-            let found = false;
-
-            try {
-                for await (const solution of solver) {
-                    found = true;
-                    const cells = placeAll(
-                        parts,
-                        requirements,
-                        solution,
-                        gridSettings
-                    );
-
-                    const wrapper = document.createElement("div");
-                    results.insertBefore(wrapper, spinner);
-                    wrapper.appendChild(
-                        createGridView(parts, requirements, cells, gridSettings)
-                    );
-                }
-            } finally {
-                solver.kill();
-                solver = null;
+            const { value: solution, done } = await it.next();
+            if (done) {
                 spinner.parentNode.removeChild(spinner);
+                noResults.style.display = "";
+                return;
             }
 
-            if (!found) {
-                noResults.style.display = "";
-            }
+            const cells = placeAll(
+                parts,
+                requirements,
+                solution as Solution,
+                gridSettings
+            );
+
+            const wrapper = document.createElement("div");
+            results.insertBefore(wrapper, spinner);
+            wrapper.appendChild(
+                createGridView(parts, requirements, cells, gridSettings)
+            );
+
+            const observer = new IntersectionObserver(([entry]) => {
+                if (entry.intersectionRatio <= 0) {
+                    return;
+                }
+
+                (async () => {
+                    for (;;) {
+                        const { value: solution, done } = await it.next();
+
+                        if (done) {
+                            spinner.parentNode.removeChild(spinner);
+                            return;
+                        }
+
+                        const cells = placeAll(
+                            parts,
+                            requirements,
+                            solution as Solution,
+                            gridSettings
+                        );
+
+                        const wrapper = document.createElement("div");
+                        results.insertBefore(wrapper, spinner);
+                        wrapper.appendChild(
+                            createGridView(
+                                parts,
+                                requirements,
+                                cells,
+                                gridSettings
+                            )
+                        );
+
+                        const clientRect = spinner.getBoundingClientRect();
+                        if (clientRect.top > window.innerHeight) {
+                            break;
+                        }
+                    }
+                })();
+            });
+            observer.observe(spinner);
         })();
     }
 
