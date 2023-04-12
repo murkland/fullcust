@@ -1,23 +1,37 @@
 use genawaiter::yield_;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Mask {
-    cells: ndarray::Array2<bool>,
+    cells: Vec<bool>,
+    height: usize,
+    width: usize,
 }
 
 impl Mask {
-    pub fn new(shape: (usize, usize), cells: Vec<bool>) -> Result<Self, ndarray::ShapeError> {
+    pub fn new(height: usize, width: usize, cells: Vec<bool>) -> Result<Self, ()> {
         Ok(Mask {
-            cells: ndarray::Array2::from_shape_vec(shape, cells)?,
+            cells,
+            height,
+            width,
         })
     }
 
+    fn as_ndarray(&self) -> ndarray::ArrayView2<bool> {
+        ndarray::ArrayView2::from_shape((self.height, self.width), &self.cells).unwrap()
+    }
+
     fn rotate90(&self) -> Self {
-        let mut cells = self.cells.t().as_standard_layout().into_owned();
-        for row in cells.rows_mut() {
+        let mut ndarray = self.as_ndarray().t().as_standard_layout().into_owned();
+        for row in ndarray.rows_mut() {
             row.into_slice().unwrap().reverse();
         }
-        Mask { cells }
+
+        let (width, height) = ndarray.dim();
+        Mask {
+            width,
+            height,
+            cells: ndarray.into_raw_vec(),
+        }
     }
 
     fn rotate<'a>(&'a self, num: usize) -> std::borrow::Cow<'a, Self> {
@@ -29,48 +43,52 @@ impl Mask {
     }
 
     fn trimmed(&self) -> Self {
-        let (h, w) = self.cells.dim();
+        let ndarray = self.as_ndarray();
+
+        let (h, w) = ndarray.dim();
 
         let left = (0..w)
-            .filter(|i| self.cells.column(*i).iter().any(|v| *v))
+            .filter(|i| ndarray.column(*i).iter().any(|v| *v))
             .next()
             .unwrap_or(0);
 
         let top = (0..h)
-            .filter(|i| self.cells.row(*i).iter().any(|v| *v))
+            .filter(|i| ndarray.row(*i).iter().any(|v| *v))
             .next()
             .unwrap_or(0);
 
         let right = (0..w)
             .rev()
-            .filter(|i| self.cells.column(*i).iter().any(|v| *v))
+            .filter(|i| ndarray.column(*i).iter().any(|v| *v))
             .next()
             .unwrap_or(w - 1)
             + 1;
 
         let bottom = (0..h)
             .rev()
-            .filter(|i| self.cells.row(*i).iter().any(|v| *v))
+            .filter(|i| ndarray.row(*i).iter().any(|v| *v))
             .next()
             .unwrap_or(h - 1)
             + 1;
 
+        let ndarray = ndarray.slice(ndarray::s![top..bottom, left..right]);
+
+        let (height, width) = ndarray.dim();
         Mask {
-            cells: self
-                .cells
-                .slice(ndarray::s![top..bottom, left..right])
-                .into_owned(),
+            width,
+            height,
+            cells: ndarray.into_owned().into_raw_vec(),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Position {
     pub x: isize,
     pub y: isize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Location {
     pub position: Position,
     pub rotation: usize,
@@ -133,8 +151,10 @@ impl Grid {
             (0, pos.x as usize)
         };
 
+        let mask_ndarray = mask.as_ndarray();
+
         // Validate that our mask isn't being weirdly clipped.
-        for (y, row) in mask.cells.rows().into_iter().enumerate() {
+        for (y, row) in mask_ndarray.rows().into_iter().enumerate() {
             for (x, &v) in row.into_iter().enumerate() {
                 // Standard stuff...
                 if x >= src_x && y >= src_y && x < w - dst_x && y < h - dst_y {
@@ -149,7 +169,7 @@ impl Grid {
 
         // Validate we're not clobbering over the destination.
         for (src_row, dst_row) in std::iter::zip(
-            mask.cells.slice(ndarray::s![src_y.., src_x..]).rows(),
+            mask_ndarray.slice(ndarray::s![src_y.., src_x..]).rows(),
             self.cells.slice(ndarray::s![dst_y.., dst_x..]).rows(),
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
@@ -161,7 +181,7 @@ impl Grid {
 
         // After this, we will start mutating.
         for (src_row, dst_row) in std::iter::zip(
-            mask.cells.slice(ndarray::s![src_y.., src_x..]).rows(),
+            mask_ndarray.slice(ndarray::s![src_y.., src_x..]).rows(),
             self.cells
                 .slice_mut(ndarray::s![dst_y.., dst_x..])
                 .rows_mut(),
@@ -177,7 +197,7 @@ impl Grid {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Part {
     pub is_solid: bool,
     pub color: usize,
@@ -185,13 +205,13 @@ pub struct Part {
     pub uncompressed_mask: Mask,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Requirement {
     pub part_index: usize,
     pub constraint: Constraint,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Constraint {
     pub compressed: Option<bool>,
     pub on_command_line: Option<bool>,
@@ -237,7 +257,7 @@ fn requirements_are_admissible<'a>(
     true
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct GridSettings {
     pub height: usize,
     pub width: usize,
@@ -245,7 +265,7 @@ pub struct GridSettings {
     pub command_line_row: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Placement {
     pub loc: Location,
     pub compressed: bool,
@@ -328,9 +348,8 @@ fn placement_positions_for_mask<'a>(
 ) -> Vec<Position> {
     let mut positions = vec![];
 
-    let (w, h) = mask.cells.dim();
-    let w = w as isize;
-    let h = h as isize;
+    let w = mask.width as isize;
+    let h = mask.height as isize;
 
     for y in (-h + 1)..h {
         for x in (-w + 1)..w {
@@ -670,7 +689,8 @@ mod tests {
     #[test]
     fn test_mask_rot90() {
         let mask = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, true, true, true, true, false, false, //
                 true, true, true, true, false, false, false, //
@@ -686,7 +706,8 @@ mod tests {
         assert_eq!(
             mask,
             Mask::new(
-                (7, 7),
+                7,
+                7,
                 vec![
                     true, true, true, true, true, true, true, //
                     true, true, true, true, true, true, true, //
@@ -710,7 +731,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -747,7 +769,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -788,7 +811,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -826,7 +850,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -863,7 +888,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -888,7 +914,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (3, 2),
+            3,
+            2,
             vec![
                 true, false, //
                 true, true, //
@@ -921,7 +948,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -958,7 +986,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 false, true, false, false, false, false, false, //
                 false, true, true, false, false, false, false, //
@@ -995,7 +1024,8 @@ mod tests {
             command_line_row: 3,
         });
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1024,7 +1054,8 @@ mod tests {
         });
 
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1051,7 +1082,8 @@ mod tests {
         grid.cells[[0, 0]] = Cell::Placed(2);
 
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1070,7 +1102,8 @@ mod tests {
     #[test]
     fn test_placement_positions_for_mask() {
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1132,7 +1165,8 @@ mod tests {
     #[test]
     fn test_placement_positions_for_mask_on_command_line() {
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1184,7 +1218,8 @@ mod tests {
     #[test]
     fn test_placement_positions_for_mask_not_bugged() {
         let super_armor = Mask::new(
-            (7, 7),
+            7,
+            7,
             vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
@@ -1230,7 +1265,8 @@ mod tests {
     #[test]
     fn test_placement_locations_for_mask() {
         let super_armor = Mask::new(
-            (3, 3),
+            3,
+            3,
             vec![
                 true, false, false, //
                 true, false, false, //
@@ -1276,7 +1312,8 @@ mod tests {
     #[test]
     fn test_mask_trimmed() {
         let super_armor = Mask::new(
-            (3, 3),
+            3,
+            3,
             vec![
                 true, false, false, //
                 true, false, false, //
@@ -1286,7 +1323,8 @@ mod tests {
         .unwrap();
 
         let expected_super_armor = Mask::new(
-            (3, 1),
+            3,
+            1,
             vec![
                 true, //
                 true, //
@@ -1301,7 +1339,8 @@ mod tests {
     #[test]
     fn test_solve() {
         let super_armor = Mask::new(
-            (3, 3),
+            3,
+            3,
             vec![
                 true, false, false, //
                 true, true, false, //

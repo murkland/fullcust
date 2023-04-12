@@ -2,16 +2,6 @@ mod solver;
 
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen(start)]
-pub fn main_js() -> Result<(), JsValue> {
-    #[cfg(debug_assertions)]
-    console_error_panic_hook::set_once();
-    wasm_log::init(wasm_log::Config::default());
-
-    main().map_err(|e| JsError::new(&format!("{:?}", e)))?;
-    Ok(())
-}
-
 #[wasm_bindgen]
 pub struct Parts(Vec<solver::Part>);
 
@@ -22,10 +12,17 @@ pub struct Requirements(Vec<solver::Requirement>);
 pub struct GridSettings(solver::GridSettings);
 
 #[wasm_bindgen]
-pub struct SolutionIterator(Box<dyn Iterator<Item = solver::Solution>>);
+pub struct Solution(solver::Solution);
 
 #[wasm_bindgen]
-pub struct Solution(solver::Solution);
+impl Solution {
+    pub fn to_js(&self) -> JsValue {
+        serde_wasm_bindgen::to_value(&self.0).unwrap()
+    }
+}
+
+#[wasm_bindgen]
+pub struct SolutionIterator(Box<dyn Iterator<Item = solver::Solution>>);
 
 #[wasm_bindgen]
 impl SolutionIterator {
