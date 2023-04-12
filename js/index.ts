@@ -529,7 +529,7 @@ async function main() {
 
             {
                 const wrapperEl = document.createElement("div");
-                wrapperEl.className = "col";
+                wrapperEl.className = "col-xl";
                 constraintsEl.appendChild(wrapperEl);
                 wrapperEl.appendChild(
                     createConstraintDropdown(
@@ -544,7 +544,7 @@ async function main() {
             }
             {
                 const wrapperEl = document.createElement("div");
-                wrapperEl.className = "col";
+                wrapperEl.className = "col-xl";
                 constraintsEl.appendChild(wrapperEl);
                 wrapperEl.appendChild(
                     createConstraintDropdown(
@@ -559,7 +559,7 @@ async function main() {
             }
             {
                 const wrapperEl = document.createElement("div");
-                wrapperEl.className = "col";
+                wrapperEl.className = "col-xl";
                 constraintsEl.appendChild(wrapperEl);
                 wrapperEl.appendChild(
                     createConstraintDropdown(
