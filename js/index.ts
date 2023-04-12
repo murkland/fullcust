@@ -132,6 +132,9 @@ function drawGridView(
     gridSettings: GridSettings
 ) {
     ctx.lineWidth = BORDER_WIDTH;
+    ctx.font = "20px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
     // First pass: draw background.
     ctx.strokeStyle = BORDER_STROKE_COLOR;
@@ -196,6 +199,13 @@ function drawGridView(
                 ctx.strokeRect(px, py + CELL_SIZE / 2, CELL_SIZE, 1);
                 ctx.strokeRect(px + CELL_SIZE / 2, py, 1, CELL_SIZE);
             }
+
+            ctx.fillStyle = BORDER_STROKE_COLOR;
+            ctx.fillText(
+                (cell + 1).toString(),
+                px + CELL_SIZE / 2,
+                py + CELL_SIZE / 2
+            );
         }
     }
 
