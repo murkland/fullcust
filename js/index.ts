@@ -26,6 +26,14 @@ const requirements: Requirement[] = [
             onCommandLine: true,
         },
     },
+    {
+        partIndex: 0,
+        constraint: {
+            bugged: null,
+            compressed: null,
+            onCommandLine: true,
+        },
+    },
 ];
 
 const gridSettings: GridSettings = {

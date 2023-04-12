@@ -348,8 +348,8 @@ fn placement_positions_for_mask<'a>(
 ) -> Vec<Position> {
     let mut positions = vec![];
 
-    let w = mask.width as isize;
-    let h = mask.height as isize;
+    let w = grid_settings.width as isize;
+    let h = grid_settings.height as isize;
 
     for y in (-h + 1)..h {
         for x in (-w + 1)..w {
