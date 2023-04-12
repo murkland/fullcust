@@ -498,3 +498,8 @@ function update() {
 
     updateResults();
 }
+
+document.getElementById("reset")!.onclick = () => {
+    requirements.splice(0, requirements.length);
+    update();
+};

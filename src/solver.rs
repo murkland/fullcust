@@ -286,6 +286,17 @@ fn placement_is_admissible<'a>(
         return false;
     }
 
+    // Mandatory admissibility: ensure not everything is out of bounds.
+    if grid_settings.has_oob
+        && grid
+            .cells
+            .slice(ndarray::s![1..h - 1, 1..w - 1])
+            .iter()
+            .all(|v| !matches!(v, Cell::Placed(0)))
+    {
+        return false;
+    }
+
     // Optional admissibility: check if the block is appropriately in/out of bounds.
     if bugged == Some(false) && grid_settings.has_oob {
         if grid
