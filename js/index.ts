@@ -321,6 +321,23 @@ async function main() {
         return el;
     }
 
+    function createSpinner(gridSettings: GridSettings) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "d-flex justify-content-center align-items-center";
+        wrapper.style.width = `${
+            gridSettings.width * CELL_SIZE + BORDER_WIDTH
+        }px`;
+        wrapper.style.height = `${
+            gridSettings.height * CELL_SIZE + BORDER_WIDTH
+        }px`;
+
+        const spinner = document.createElement("div");
+        wrapper.appendChild(spinner);
+
+        spinner.className = "spinner-border";
+        return wrapper;
+    }
+
     let solver: Solver | null = null;
 
     function updateResults() {
@@ -339,6 +356,9 @@ async function main() {
         }
         solver = new Solver(parts, requirements, gridSettings);
 
+        const spinner = createSpinner(gridSettings);
+        results.appendChild(spinner);
+
         (async () => {
             let found = false;
 
@@ -353,7 +373,7 @@ async function main() {
                     );
 
                     const wrapper = document.createElement("div");
-                    results.appendChild(wrapper);
+                    results.insertBefore(wrapper, spinner);
                     wrapper.appendChild(
                         createGridView(parts, requirements, cells, gridSettings)
                     );
@@ -361,6 +381,7 @@ async function main() {
             } finally {
                 solver.kill();
                 solver = null;
+                spinner.parentNode.removeChild(spinner);
             }
 
             if (!found) {
