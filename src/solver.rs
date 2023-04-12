@@ -11,12 +11,7 @@ impl Mask {
     }
 
     fn rot90(&self) -> Self {
-        let mut cells = self
-            .cells
-            .clone()
-            .reversed_axes()
-            .as_standard_layout()
-            .into_owned();
+        let mut cells = self.cells.t().as_standard_layout().into_owned();
         for row in cells.rows_mut() {
             row.into_slice().unwrap().reverse();
         }
