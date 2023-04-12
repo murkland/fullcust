@@ -1,5 +1,11 @@
 {
     "colors": ["", "white", "yellow", "pink", "red", "blue", "green"],
+    "gridSettings": {
+        "height": 7,
+        "width": 7,
+        "hasOob": true,
+        "commandLineRow": 3
+    },
     "parts": [
         {
             "id": 1,

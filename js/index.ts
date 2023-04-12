@@ -5,9 +5,17 @@ import { convertParts, GridSettings, Part, placeAll, Requirement, Solution } fro
 async function main() {
     let requirements: Requirement[] = [];
 
-    const data = await import("./bn6.json");
+    const queryParams = new URLSearchParams(location.search);
+    const game = queryParams.get("game") || "bn6";
 
-    const parts = convertParts(data.parts, 7, 7);
+    const data = await import(`./${game}.json`);
+    const gridSettings: GridSettings = data.gridSettings;
+
+    const parts = convertParts(
+        data.parts,
+        gridSettings.height,
+        gridSettings.width
+    );
 
     const partSelect = document.getElementById(
         "part-select"
@@ -78,13 +86,6 @@ async function main() {
 
         return el;
     }
-
-    const gridSettings: GridSettings = {
-        height: 7,
-        width: 7,
-        hasOob: true,
-        commandLineRow: 3,
-    };
 
     const CELL_SIZE = 48;
 
