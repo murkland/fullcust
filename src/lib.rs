@@ -13,18 +13,19 @@ pub fn main_js() -> Result<(), JsValue> {
 }
 
 #[wasm_bindgen]
-pub struct Part(solver::Part);
+pub struct Parts(Vec<solver::Part>);
 
 #[wasm_bindgen]
-pub struct Requirement(solver::Requirement);
+pub struct Requirements(Vec<solver::Requirement>);
 
 #[wasm_bindgen]
 pub struct GridSettings(solver::GridSettings);
 
-pub fn solve(parts: Box<[Part]>, requirements: Box<[Requirement]>, settings: GridSettings) {
+#[wasm_bindgen]
+pub fn solve(parts: Parts, requirements: Requirements, settings: GridSettings) {
     solver::solve(
-        &parts.into_iter().map(|v| &v.0).collect::<Vec<_>>(),
-        &requirements.into_iter().map(|v| &v.0).collect::<Vec<_>>(),
+        &parts.0.iter().collect::<Vec<_>>(),
+        &requirements.0.iter().collect::<Vec<_>>(),
         &settings.0,
     );
 }
