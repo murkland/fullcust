@@ -91,6 +91,8 @@ export function placeAll(
 
 export function convertParts(
     rawParts: {
+        name: string;
+        nameJa: string;
         isSolid: boolean;
         color: number;
         compressedMask: number[];
@@ -98,9 +100,18 @@ export function convertParts(
     }[],
     height: number,
     width: number
-): Part[] {
+): (Part & { name: string; nameJa: string })[] {
     return rawParts.map(
-        ({ isSolid, color, compressedMask, uncompressedMask }) => ({
+        ({
+            name,
+            nameJa,
+            isSolid,
+            color,
+            compressedMask,
+            uncompressedMask,
+        }) => ({
+            name,
+            nameJa,
             isSolid,
             color,
             compressedMask: {
