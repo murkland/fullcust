@@ -45,7 +45,9 @@ async function main() {
             partIndex,
             constraint: {
                 bugged: null,
-                compressed: true,
+                compressed: !isEqual(part.compressedMask, part.uncompressedMask)
+                    ? true
+                    : false,
                 onCommandLine: part.isSolid ? true : null,
             },
         });
@@ -56,12 +58,14 @@ async function main() {
     function createConstraintDropdown(
         title: string,
         initialValue: boolean | null,
+        disabled: boolean,
         onchange: (v: boolean | null) => void
     ) {
         const el = document.createElement("div");
         el.className = "form-floating";
 
         const select = document.createElement("select");
+        select.disabled = disabled;
         el.appendChild(select);
 
         for (const [v, text] of [
@@ -556,6 +560,7 @@ async function main() {
                     createConstraintDropdown(
                         "on command line・コマンドライン上",
                         requirement.constraint.onCommandLine,
+                        false,
                         ((i: number, v: boolean | null) => {
                             requirements[i].constraint.onCommandLine = v;
                             updateResults();
@@ -571,6 +576,7 @@ async function main() {
                     createConstraintDropdown(
                         "cause bug・バグを引き起こす",
                         requirement.constraint.bugged,
+                        false,
                         ((i: number, v: boolean | null) => {
                             requirements[i].constraint.bugged = v;
                             updateResults();
@@ -586,6 +592,7 @@ async function main() {
                     createConstraintDropdown(
                         "compress・圧縮",
                         requirement.constraint.compressed,
+                        isEqual(part.compressedMask, part.uncompressedMask),
                         ((i: number, v: boolean | null) => {
                             requirements[i].constraint.compressed = v;
                             updateResults();
