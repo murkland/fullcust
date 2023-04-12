@@ -2,6 +2,7 @@
 name = "fullcust"
 version = "0.1.0"
 edition = "2021"
+wasm-opt = false
 
 [lib]
 crate-type = ["cdylib"]
@@ -18,8 +19,10 @@ ndarray = "0.15"
 genawaiter = "0.99"
 thiserror = "1"
 js-sys = "0.3"
+web-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.4"
+instant = { version = "0.1", features = ["stdweb", "wasm-bindgen"] }
 
 [target."cfg(debug_assertions)".dependencies]
 console_error_panic_hook = "0.1"

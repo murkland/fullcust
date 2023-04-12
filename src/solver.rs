@@ -688,21 +688,27 @@ pub fn solve(
             return;
         }
 
-        let mut candidates = requirements
-            .iter()
-            .enumerate()
-            .map(|(i, req)| {
-                (
-                    i,
-                    placements(&parts[req.part_index], grid_settings, &req.constraint),
-                )
-            })
-            .collect::<Vec<_>>();
+        let candidates = {
+            let start_time = instant::Instant::now();
+            let mut candidates = requirements
+                .iter()
+                .enumerate()
+                .map(|(i, req)| {
+                    (
+                        i,
+                        placements(&parts[req.part_index], grid_settings, &req.constraint),
+                    )
+                })
+                .collect::<Vec<_>>();
 
-        // Heuristic: fit hard to fit blocks first, then easier ones.
-        //
-        // If two blocks are just as hard to fit, make sure to group ones of the same type together.
-        candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
+            // Heuristic: fit hard to fit blocks first, then easier ones.
+            //
+            // If two blocks are just as hard to fit, make sure to group ones of the same type together.
+            candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
+
+            log::info!("candidates took {:?}", instant::Instant::now() - start_time);
+            candidates
+        };
 
         for mut solution in solve_helper(
             std::rc::Rc::new(parts),

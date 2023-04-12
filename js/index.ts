@@ -1,11 +1,12 @@
 import data from "./bn6.json";
-import { convertParts, GridSettings, Part, placeAll, Requirement, solve } from "./solver";
+import { convertParts, GridSettings, Part, placeAll, Requirement, Solution, solve } from "./solver";
 
 const parts = convertParts(data.parts, 7, 7);
 
 const partSelect = document.getElementById("part-select")! as HTMLSelectElement;
 
 const results = document.getElementById("results")!;
+const noResults = document.getElementById("no-results");
 
 for (let i = 0; i < parts.length; ++i) {
     const part = parts[i];
@@ -28,7 +29,7 @@ partSelect.onchange = () => {
         partIndex,
         constraint: {
             bugged: null,
-            compressed: null,
+            compressed: true,
             onCommandLine: part.isSolid ? true : null,
         },
     });
@@ -267,30 +268,96 @@ function createGridView(
     return el;
 }
 
+let solver: Solver | null = null;
+
 function updateResults() {
     results.innerHTML = "";
+    noResults.style.display = "none";
 
     if (requirements.length == 0) {
         return;
     }
 
-    let i = 0;
-    const solver = solve(parts, requirements, gridSettings);
-    for (const solution of solver) {
-        const cells = placeAll(parts, requirements, solution, gridSettings);
+    if (solver != null) {
+        solver.kill();
+        solver = null;
+    }
+    solver = new Solver(parts, requirements, gridSettings);
 
-        const wrapper = document.createElement("div");
-        results.insertBefore(wrapper, results.firstChild);
+    (async () => {
+        let found = false;
+        for await (const solution of solver) {
+            found = true;
+            const cells = placeAll(parts, requirements, solution, gridSettings);
 
-        wrapper.appendChild(
-            createGridView(parts, requirements, cells, gridSettings)
-        );
-
-        ++i;
-        if (i >= 5) {
-            // TODO
-            break;
+            const wrapper = document.createElement("div");
+            results.appendChild(wrapper);
+            wrapper.appendChild(
+                createGridView(parts, requirements, cells, gridSettings)
+            );
         }
+
+        if (!found) {
+            noResults.style.display = "";
+        }
+    })();
+}
+
+class Solver {
+    worker: Worker;
+    args: {
+        parts: Part[];
+        requirements: Requirement[];
+        gridSettings: GridSettings;
+    };
+
+    constructor(
+        parts: Part[],
+        requirements: Requirement[],
+        gridSettings: GridSettings
+    ) {
+        this.worker = new Worker(new URL("./worker.ts", import.meta.url));
+        this.args = { parts, requirements, gridSettings };
+    }
+
+    async *[Symbol.asyncIterator]() {
+        const ready = await new Promise<{ type: string }>((resolve) => {
+            const worker = this.worker;
+            worker.addEventListener("message", function eh(msg) {
+                worker.removeEventListener("message", eh);
+                resolve(msg.data);
+            });
+        });
+        if (ready.type != "ready") {
+            throw "not ready";
+        }
+
+        this.worker.postMessage({
+            type: "init",
+            args: this.args,
+        });
+
+        while (true) {
+            const solution = await new Promise<{
+                value: Solution;
+                done: boolean;
+            }>((resolve) => {
+                const worker = this.worker;
+                worker.addEventListener("message", function eh(msg) {
+                    worker.removeEventListener("message", eh);
+                    resolve(msg.data);
+                });
+                worker.postMessage({ type: "next" });
+            });
+            if (solution.done) {
+                break;
+            }
+            yield solution.value;
+        }
+    }
+
+    kill() {
+        this.worker.terminate();
     }
 }
 
@@ -376,10 +443,3 @@ function update() {
 
     updateResults();
 }
-
-const resetButton = document.getElementById("reset")!;
-
-resetButton.onclick = () => {
-    requirements.splice(0, requirements.length);
-    update();
-};

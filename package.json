@@ -2,7 +2,7 @@
     "name": "fullcust",
     "version": "0.1.0",
     "scripts": {
-        "build": "rimraf dist pkg && webpack",
+        "build": "rimraf dist pkg && NODE_ENV=production webpack",
         "start": "rimraf dist pkg && webpack-dev-server",
         "test": "cargo test && wasm-pack test --headless"
     },
