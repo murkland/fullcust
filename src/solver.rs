@@ -512,6 +512,11 @@ fn solve1<'a>(
             .rot(placement.loc.rotation);
 
             // Check part admissibility.
+            let mut grid = grid.clone();
+            if !grid.place(mask, placement.loc.position, req_idx) {
+                continue;
+            }
+
             if !placement_is_admissible(
                 mask,
                 placement.loc.position,
@@ -520,11 +525,6 @@ fn solve1<'a>(
                 requirement.constraint.on_command_line,
                 requirement.constraint.bugged,
             ) {
-                continue;
-            }
-
-            let mut grid = grid.clone();
-            if !grid.place(mask, placement.loc.position, req_idx) {
                 continue;
             }
 
