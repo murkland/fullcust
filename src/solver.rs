@@ -555,89 +555,6 @@ fn solution_is_admissible<'a>(
     true
 }
 
-fn solve1(
-    parts: std::rc::Rc<Vec<Part>>,
-    requirements: std::rc::Rc<Vec<Requirement>>,
-    grid: Grid,
-    mut candidates: Vec<(usize, Vec<Placement>)>,
-    visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
-) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'static {
-    genawaiter::rc::gen!({
-        let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
-            candidate
-        } else {
-            yield_!(vec![]);
-            return;
-        };
-
-        let requirement = &requirements[req_idx];
-        let part = &parts[requirement.part_index];
-
-        for placement in placements {
-            let mask = &if placement.compressed {
-                &part.compressed_mask
-            } else {
-                &part.uncompressed_mask
-            }
-            .rotate(placement.loc.rotation);
-
-            let mut grid = grid.clone();
-            if !grid.place(mask, placement.loc.position, req_idx) {
-                continue;
-            }
-
-            if !placement_is_admissible(
-                mask,
-                placement.loc.position,
-                part.is_solid,
-                grid.settings(),
-                requirement.constraint.on_command_line,
-                requirement.constraint.bugged,
-            ) {
-                continue;
-            }
-
-            let parts_string = grid
-                .cells
-                .iter()
-                .map(|cell| match cell {
-                    Cell::Placed(requirement_idx) => {
-                        Some(requirements[*requirement_idx].part_index)
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            {
-                let mut visited = visited.borrow_mut();
-                if visited.contains(&parts_string) {
-                    continue;
-                }
-                visited.insert(parts_string);
-            }
-
-            let solutions = solve1(
-                parts.clone(),
-                requirements.clone(),
-                grid.clone(),
-                candidates.clone(),
-                visited.clone(),
-            )
-            .collect::<Vec<_>>();
-            for mut solution in solutions {
-                solution.push((req_idx, placement.clone()));
-
-                // Out of candidates! Do the final check.
-                if candidates.is_empty() && !solution_is_admissible(&parts, &requirements, &grid) {
-                    continue;
-                }
-
-                yield_!(solution);
-            }
-        }
-    })
-    .into_iter()
-}
-
 pub fn place_all(
     parts: &[&Part],
     requirements: &[&Requirement],
@@ -675,6 +592,91 @@ pub fn solve(
     requirements: Vec<Requirement>,
     grid_settings: GridSettings,
 ) -> impl Iterator<Item = Solution> + 'static {
+    fn solve_helper(
+        parts: std::rc::Rc<Vec<Part>>,
+        requirements: std::rc::Rc<Vec<Requirement>>,
+        grid: Grid,
+        mut candidates: Vec<(usize, Vec<Placement>)>,
+        visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
+    ) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'static {
+        genawaiter::rc::gen!({
+            let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
+                candidate
+            } else {
+                yield_!(vec![]);
+                return;
+            };
+
+            let requirement = &requirements[req_idx];
+            let part = &parts[requirement.part_index];
+
+            for placement in placements {
+                let mask = &if placement.compressed {
+                    &part.compressed_mask
+                } else {
+                    &part.uncompressed_mask
+                }
+                .rotate(placement.loc.rotation);
+
+                let mut grid = grid.clone();
+                if !grid.place(mask, placement.loc.position, req_idx) {
+                    continue;
+                }
+
+                if !placement_is_admissible(
+                    mask,
+                    placement.loc.position,
+                    part.is_solid,
+                    grid.settings(),
+                    requirement.constraint.on_command_line,
+                    requirement.constraint.bugged,
+                ) {
+                    continue;
+                }
+
+                let parts_string = grid
+                    .cells
+                    .iter()
+                    .map(|cell| match cell {
+                        Cell::Placed(requirement_idx) => {
+                            Some(requirements[*requirement_idx].part_index)
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                {
+                    let mut visited = visited.borrow_mut();
+                    if visited.contains(&parts_string) {
+                        continue;
+                    }
+                    visited.insert(parts_string);
+                }
+
+                let solutions = solve_helper(
+                    parts.clone(),
+                    requirements.clone(),
+                    grid.clone(),
+                    candidates.clone(),
+                    visited.clone(),
+                )
+                .collect::<Vec<_>>();
+                for mut solution in solutions {
+                    solution.push((req_idx, placement.clone()));
+
+                    // Out of candidates! Do the final check.
+                    if candidates.is_empty()
+                        && !solution_is_admissible(&parts, &requirements, &grid)
+                    {
+                        continue;
+                    }
+
+                    yield_!(solution);
+                }
+            }
+        })
+        .into_iter()
+    }
+
     genawaiter::rc::gen!({
         if grid_settings.command_line_row >= grid_settings.height {
             return;
@@ -702,7 +704,7 @@ pub fn solve(
         // If two blocks are just as hard to fit, make sure to group ones of the same type together.
         candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
-        for mut solution in solve1(
+        for mut solution in solve_helper(
             std::rc::Rc::new(parts),
             std::rc::Rc::new(requirements),
             Grid::new(grid_settings),
