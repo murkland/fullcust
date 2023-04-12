@@ -24,6 +24,7 @@ async function main() {
 
     const results = document.getElementById("results")!;
     const noResults = document.getElementById("no-results");
+    const noRequirements = document.getElementById("no-requirements");
 
     for (let i = 0; i < parts.length; ++i) {
         const part = parts[i];
@@ -325,8 +326,10 @@ async function main() {
     function updateResults() {
         results.innerHTML = "";
         noResults.style.display = "none";
+        noRequirements.style.display = "none";
 
         if (requirements.length == 0) {
+            noRequirements.style.display = "";
             return;
         }
 
