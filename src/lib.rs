@@ -76,31 +76,20 @@ pub struct PlaceAllArgs {
 
 #[wasm_bindgen(js_name = placeAll)]
 pub fn place_all(args: PlaceAllArgs) -> JsValue {
-    serde_wasm_bindgen::to_value(
-        &solver::place_all(
-            args.parts.iter().map(|v| v).collect::<Vec<_>>().as_slice(),
-            args.requirements
-                .iter()
-                .map(|v| v)
-                .collect::<Vec<_>>()
-                .as_slice(),
-            args.placements
-                .iter()
-                .map(|v| v)
-                .collect::<Vec<_>>()
-                .as_slice(),
-            args.grid_settings,
-        )
-        .map(|v| {
-            {
-                v.into_iter().map(|v| match v {
-                    Some(v) => v as isize,
-                    None => -1,
-                })
-            }
+    serde_wasm_bindgen::to_value(&solver::place_all(
+        args.parts.iter().map(|v| v).collect::<Vec<_>>().as_slice(),
+        args.requirements
+            .iter()
+            .map(|v| v)
             .collect::<Vec<_>>()
-        }),
-    )
+            .as_slice(),
+        args.placements
+            .iter()
+            .map(|v| v)
+            .collect::<Vec<_>>()
+            .as_slice(),
+        args.grid_settings,
+    ))
     .unwrap()
 }
 

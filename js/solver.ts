@@ -78,7 +78,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): number[] {
+): (number | undefined)[] {
     return bindings.placeAll(
         bindings.PlaceAllArgs.fromJs({
             parts,
