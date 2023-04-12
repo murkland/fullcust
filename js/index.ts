@@ -134,12 +134,31 @@ function drawGridView(
 
     // First pass: draw background.
     ctx.fillStyle = BG_FILL_COLOR;
+    ctx.strokeStyle = BORDER_STROKE_COLOR;
     ctx.fillRect(
         0,
         0,
-        gridSettings.width * CELL_SIZE,
-        gridSettings.height * CELL_SIZE
+        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+        gridSettings.height * CELL_SIZE + BORDER_WIDTH
     );
+    for (let y = 0; y < gridSettings.height; ++y) {
+        for (let x = 0; x < gridSettings.width; ++x) {
+            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
+            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+
+            // top
+            ctx.strokeRect(px, py, CELL_SIZE, 1);
+
+            // bottom
+            ctx.strokeRect(px, py + CELL_SIZE, CELL_SIZE, 1);
+
+            // left
+            ctx.strokeRect(px, py, 1, CELL_SIZE);
+
+            // right
+            ctx.strokeRect(px + CELL_SIZE, py, 1, CELL_SIZE);
+        }
+    }
 
     // Second pass: draw squares.
     for (let y = 0; y < gridSettings.height; ++y) {
@@ -154,36 +173,82 @@ function drawGridView(
             const color =
                 COLORS[data.colors[part.color] as keyof typeof COLORS];
 
-            const px = x * CELL_SIZE;
-            const py = y * CELL_SIZE;
+            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
+            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
 
             ctx.fillStyle = color.solid;
             ctx.strokeStyle = color.plus;
 
             ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
 
+            ctx.strokeRect(px, py, CELL_SIZE, 1);
+            ctx.strokeRect(px, py + CELL_SIZE, CELL_SIZE, 1);
+            ctx.strokeRect(px, py, 1, CELL_SIZE);
+            ctx.strokeRect(px + CELL_SIZE, py, 1, CELL_SIZE);
             if (!part.isSolid) {
-                ctx.strokeRect(px, py, CELL_SIZE, 1);
                 ctx.strokeRect(px, py + CELL_SIZE / 2, CELL_SIZE, 1);
-                ctx.strokeRect(px, py + CELL_SIZE, CELL_SIZE, 1);
-                ctx.strokeRect(px, py, 1, CELL_SIZE);
-
                 ctx.strokeRect(px + CELL_SIZE / 2, py, 1, CELL_SIZE);
-                ctx.strokeRect(px + CELL_SIZE, py, 1, CELL_SIZE);
             }
         }
     }
 
     // Third pass: draw borders.
+    ctx.strokeStyle = BORDER_STROKE_COLOR;
+
     for (let y = 0; y < gridSettings.height; ++y) {
         for (let x = 0; x < gridSettings.width; ++x) {
             const cell = cells[y * gridSettings.width + x];
+
+            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
+            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+
+            // top
+            if (y == 0 || cells[(y - 1) * gridSettings.width + x] != cell) {
+                ctx.strokeRect(px, py, CELL_SIZE, 1);
+            }
+
+            // bottom
+            if (
+                y == gridSettings.height - 1 ||
+                cells[(y + 1) * gridSettings.width + x] != cell
+            ) {
+                ctx.strokeRect(px, py + CELL_SIZE, CELL_SIZE, 1);
+            }
+
+            // left
+            if (x == 0 || cells[y * gridSettings.width + (x - 1)] != cell) {
+                ctx.strokeRect(px, py, 1, CELL_SIZE);
+            }
+
+            // right
+            if (
+                x == gridSettings.width - 1 ||
+                cells[y * gridSettings.width + (x + 1)] != cell
+            ) {
+                ctx.strokeRect(px + CELL_SIZE, py, 1, CELL_SIZE);
+            }
         }
     }
 
     // Fourth pass: draw command line.
+    const commandLinePy =
+        gridSettings.commandLineRow * CELL_SIZE + BORDER_WIDTH / 2;
+    ctx.strokeRect(
+        0,
+        commandLinePy + (CELL_SIZE * 1.0) / 4.0,
+        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+        1
+    );
+    ctx.strokeRect(
+        0,
+        commandLinePy + (CELL_SIZE * 3.0) / 4.0,
+        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+        1
+    );
 
     // Fifth pass: draw out of bounds overlay.
+    if (gridSettings.hasOob) {
+    }
 }
 
 function createGridView(
@@ -193,8 +258,8 @@ function createGridView(
     gridSettings: GridSettings
 ) {
     const el = document.createElement("canvas");
-    el.width = gridSettings.width * CELL_SIZE;
-    el.height = gridSettings.height * CELL_SIZE;
+    el.width = gridSettings.width * CELL_SIZE + BORDER_WIDTH;
+    el.height = gridSettings.height * CELL_SIZE + BORDER_WIDTH;
 
     const ctx = el.getContext("2d");
     drawGridView(ctx, parts, requirements, cells, gridSettings);
