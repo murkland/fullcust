@@ -9,14 +9,6 @@ pub struct Mask {
 }
 
 impl Mask {
-    pub fn new(height: usize, width: usize, cells: Vec<bool>) -> Result<Self, ()> {
-        Ok(Mask {
-            cells,
-            height,
-            width,
-        })
-    }
-
     fn as_ndarray(&self) -> ndarray::ArrayView2<bool> {
         ndarray::ArrayView2::from_shape((self.height, self.width), &self.cells).unwrap()
     }
@@ -700,10 +692,10 @@ mod tests {
 
     #[test]
     fn test_mask_rot90() {
-        let mask = Mask::new(
-            7,
-            7,
-            vec![
+        let mask = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, true, true, true, true, false, false, //
                 true, true, true, true, false, false, false, //
                 true, true, true, true, false, false, false, //
@@ -712,15 +704,14 @@ mod tests {
                 true, true, true, true, false, false, false, //
                 true, true, true, true, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
         let mask = mask.rotate90();
         assert_eq!(
             mask,
-            Mask::new(
-                7,
-                7,
-                vec![
+            Mask {
+                height: 7,
+                width: 7,
+                cells: vec![
                     true, true, true, true, true, true, true, //
                     true, true, true, true, true, true, true, //
                     true, true, true, true, true, true, true, //
@@ -729,8 +720,7 @@ mod tests {
                     false, false, false, false, false, false, false, //
                     false, false, false, false, false, false, false, //
                 ],
-            )
-            .unwrap()
+            }
         )
     }
 
@@ -742,10 +732,10 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -754,8 +744,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -780,10 +769,10 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -792,8 +781,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -822,10 +810,10 @@ mod tests {
             has_oob: true,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -834,8 +822,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -861,10 +848,10 @@ mod tests {
             has_oob: true,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -873,8 +860,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -899,10 +885,10 @@ mod tests {
             has_oob: true,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -911,8 +897,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
     }
@@ -925,16 +910,15 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            3,
-            2,
-            vec![
+        let super_armor = Mask {
+            height: 3,
+            width: 2,
+            cells: vec![
                 true, false, //
                 true, true, //
                 true, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -959,10 +943,10 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -971,8 +955,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -997,10 +980,10 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 false, true, false, false, false, false, false, //
                 false, true, true, false, false, false, false, //
                 false, true, false, false, false, false, false, //
@@ -1009,8 +992,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         #[rustfmt::skip]
         let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
@@ -1035,10 +1017,10 @@ mod tests {
             has_oob: false,
             command_line_row: 3,
         });
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1047,8 +1029,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             grid.place(&super_armor, Position { x: -1, y: 1 }, 0,),
@@ -1065,10 +1046,10 @@ mod tests {
             command_line_row: 3,
         });
 
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1077,8 +1058,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(grid.place(&super_armor, Position { x: 6, y: 0 }, 0,), false);
     }
@@ -1093,10 +1073,10 @@ mod tests {
         });
         grid.cells[[0, 0]] = Cell::Placed(2);
 
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1105,18 +1085,17 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
     }
 
     #[test]
     fn test_placement_positions_for_mask() {
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1125,8 +1104,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             placement_positions_for_mask(
@@ -1176,10 +1154,10 @@ mod tests {
 
     #[test]
     fn test_placement_positions_for_mask_on_command_line() {
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1188,8 +1166,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             placement_positions_for_mask(
@@ -1229,10 +1206,10 @@ mod tests {
 
     #[test]
     fn test_placement_positions_for_mask_not_bugged() {
-        let super_armor = Mask::new(
-            7,
-            7,
-            vec![
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
                 true, false, false, false, false, false, false, //
                 true, true, false, false, false, false, false, //
                 true, false, false, false, false, false, false, //
@@ -1241,8 +1218,7 @@ mod tests {
                 false, false, false, false, false, false, false, //
                 false, false, false, false, false, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             placement_positions_for_mask(
@@ -1276,16 +1252,15 @@ mod tests {
 
     #[test]
     fn test_placement_locations_for_mask() {
-        let super_armor = Mask::new(
-            3,
-            3,
-            vec![
+        let super_armor = Mask {
+            height: 3,
+            width: 3,
+            cells: vec![
                 true, false, false, //
                 true, false, false, //
                 true, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             placement_locations_for_mask(
@@ -1323,43 +1298,40 @@ mod tests {
 
     #[test]
     fn test_mask_trimmed() {
-        let super_armor = Mask::new(
-            3,
-            3,
-            vec![
+        let super_armor = Mask {
+            height: 3,
+            width: 3,
+            cells: vec![
                 true, false, false, //
                 true, false, false, //
                 true, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
-        let expected_super_armor = Mask::new(
-            3,
-            1,
-            vec![
+        let expected_super_armor = Mask {
+            height: 3,
+            width: 3,
+            cells: vec![
                 true, //
                 true, //
                 true, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(super_armor.trimmed(), expected_super_armor);
     }
 
     #[test]
     fn test_solve() {
-        let super_armor = Mask::new(
-            3,
-            3,
-            vec![
+        let super_armor = Mask {
+            height: 3,
+            width: 3,
+            cells: vec![
                 true, false, false, //
                 true, true, false, //
                 true, false, false, //
             ],
-        )
-        .unwrap();
+        };
 
         assert_eq!(
             solve(
