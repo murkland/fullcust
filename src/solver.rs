@@ -1,3 +1,5 @@
+use genawaiter::yield_;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Mask {
     cells: ndarray::Array2<bool>,
@@ -500,7 +502,6 @@ fn solve1<'a>(
         let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
             candidate
         } else {
-            // TODO: Check cust admissibility.
             return;
         };
 
@@ -508,7 +509,7 @@ fn solve1<'a>(
         let part = &parts[requirement.part_index];
 
         for placement in placements {
-            // Check admissibility.
+            // Check part admissibility.
 
             let mut grid = grid.clone();
             if grid
@@ -527,10 +528,13 @@ fn solve1<'a>(
                 continue;
             }
 
-            for mut solution in
-                solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>()
-            {
+            let solutions =
+                solve1(parts, requirements, grid, candidates.clone()).collect::<Vec<_>>();
+            for mut solution in solutions {
+                // TODO: Check cust admissibility.
+
                 solution.push((req_idx, placement.clone()));
+                yield_!(solution);
             }
         }
     })
