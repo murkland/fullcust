@@ -180,6 +180,7 @@ impl Grid {
 #[derive(Debug, Clone)]
 pub struct Part {
     pub is_solid: bool,
+    pub color: usize,
     pub compressed_mask: Mask,
     pub uncompressed_mask: Mask,
 }
@@ -187,7 +188,6 @@ pub struct Part {
 #[derive(Debug, Clone)]
 pub struct Requirement {
     pub part_index: usize,
-    pub color: usize,
     pub constraint: Constraint,
 }
 
