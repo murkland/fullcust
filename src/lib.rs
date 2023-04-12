@@ -32,7 +32,7 @@ pub struct Solution(solver::Solution);
 #[wasm_bindgen]
 impl Solution {
     #[wasm_bindgen(js_name = toJs)]
-    pub fn to_js(&self) -> JsValue {
+    pub fn to_js(self) -> JsValue {
         serde_wasm_bindgen::to_value(&self.0).unwrap()
     }
 }

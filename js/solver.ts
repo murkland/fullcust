@@ -60,12 +60,16 @@ export function* solve(
             gridSettings,
         })
     );
-    for (;;) {
-        const solution = it.next();
-        if (solution == null) {
-            break;
+    try {
+        for (;;) {
+            const solution = it.next();
+            if (solution == null) {
+                break;
+            }
+            yield solution.toJs();
         }
-        yield solution.toJs();
+    } finally {
+        it.free();
     }
 }
 
@@ -74,7 +78,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-) {
+): number[] {
     return bindings.placeAll(
         bindings.PlaceAllArgs.fromJs({
             parts,
