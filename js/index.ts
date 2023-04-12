@@ -21,7 +21,7 @@ const requirements: Requirement[] = [
     {
         partIndex: 0,
         constraint: {
-            bugged: null,
+            bugged: false,
             compressed: null,
             onCommandLine: true,
         },
@@ -29,7 +29,7 @@ const requirements: Requirement[] = [
     {
         partIndex: 0,
         constraint: {
-            bugged: null,
+            bugged: false,
             compressed: null,
             onCommandLine: true,
         },

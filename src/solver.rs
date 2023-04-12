@@ -538,8 +538,7 @@ fn solution_is_admissible<'a>(
                 let neighbor_requirement = &requirements[neighbor_req_idx];
                 let neighbor_part = &parts[neighbor_requirement.part_index];
 
-                neighbor_requirement.part_index != requirement.part_index
-                    && neighbor_part.color == part.color
+                neighbor_req_idx != req_idx && neighbor_part.color == part.color
             });
 
             if requirement
