@@ -491,6 +491,7 @@ fn solve1<'a>(
     requirements: &'a [Requirement],
     grid: Grid,
     mut candidates: Vec<(usize, Vec<Placement>)>,
+    visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
 ) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'a {
     genawaiter::rc::gen!({
         let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
@@ -528,9 +529,33 @@ fn solve1<'a>(
             }
 
             // TODO: visited set check
+            let parts_string = grid
+                .cells
+                .iter()
+                .map(|cell| match cell {
+                    Cell::Placed(requirement_idx) => {
+                        Some(requirements[*requirement_idx].part_index)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            // If we've already seen this configuration but this is just a different configuration of placements (e.g. placement at index 2 and 3 swapped around), don't bother searching further.
+            {
+                let mut visited = visited.borrow_mut();
+                if visited.contains(&parts_string) {
+                    continue;
+                }
+                visited.insert(parts_string);
+            }
 
-            let solutions =
-                solve1(parts, requirements, grid.clone(), candidates.clone()).collect::<Vec<_>>();
+            let solutions = solve1(
+                parts,
+                requirements,
+                grid.clone(),
+                candidates.clone(),
+                visited.clone(),
+            )
+            .collect::<Vec<_>>();
             for mut solution in solutions {
                 solution.push((req_idx, placement.clone()));
 
@@ -550,34 +575,41 @@ pub fn solve<'a>(
     parts: &'a [Part],
     requirements: &'a [Requirement],
     settings: &'a GridSettings,
-) -> Option<impl Iterator<Item = Solution> + 'a> {
-    if !requirements_are_admissible(parts, requirements, settings) {
-        return None;
-    }
+) -> impl Iterator<Item = Solution> + 'a {
+    genawaiter::rc::gen!({
+        if !requirements_are_admissible(parts, requirements, settings) {
+            return;
+        }
 
-    let mut candidates = requirements
-        .iter()
-        .enumerate()
-        .map(|(i, req)| {
-            (
-                i,
-                placements(&parts[req.part_index], settings, &req.constraint),
-            )
-        })
-        .collect::<Vec<_>>();
+        let mut candidates = requirements
+            .iter()
+            .enumerate()
+            .map(|(i, req)| {
+                (
+                    i,
+                    placements(&parts[req.part_index], settings, &req.constraint),
+                )
+            })
+            .collect::<Vec<_>>();
 
-    // Heuristic: fit hard to fit blocks first, then easier ones.
-    //
-    // If two blocks are just as hard to fit, make sure to group ones of the same type together.
-    candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
+        // Heuristic: fit hard to fit blocks first, then easier ones.
+        //
+        // If two blocks are just as hard to fit, make sure to group ones of the same type together.
+        candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
-    Some(
-        solve1(parts, requirements, Grid::new(settings), candidates).map(|mut solution| {
+        for mut solution in solve1(
+            parts,
+            requirements,
+            Grid::new(settings),
+            candidates,
+            std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashSet::new())),
+        ) {
             solution.sort_by_key(|(i, _)| *i);
             assert!(solution.len() == requirements.len());
-            solution.into_iter().map(|(_, p)| p).collect()
-        }),
-    )
+            yield_!(solution.into_iter().map(|(_, p)| p).collect());
+        }
+    })
+    .into_iter()
 }
 
 #[cfg(test)]
