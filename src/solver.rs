@@ -55,8 +55,14 @@ impl Mask {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Position {
+    pub x: isize,
+    pub y: isize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
-    pub position: (isize, isize),
+    pub position: Position,
     pub rotation: usize,
 }
 
@@ -113,21 +119,21 @@ impl Grid {
     fn place(
         &mut self,
         mask: &Mask,
-        (x, y): (isize, isize),
+        pos: Position,
         placement_index: usize,
     ) -> Result<(), PlaceError> {
         let (h, w) = self.cells.dim();
 
-        let (src_y, dst_y) = if y < 0 {
-            (-y as usize, 0)
+        let (src_y, dst_y) = if pos.y < 0 {
+            (-pos.y as usize, 0)
         } else {
-            (0, y as usize)
+            (0, pos.y as usize)
         };
 
-        let (src_x, dst_x) = if x < 0 {
-            (-x as usize, 0)
+        let (src_x, dst_x) = if pos.x < 0 {
+            (-pos.x as usize, 0)
         } else {
-            (0, x as usize)
+            (0, pos.x as usize)
         };
 
         // Validate that our mask isn't being weirdly clipped.
@@ -249,7 +255,7 @@ struct PlacementCandidate {
 
 fn placement_is_admissible<'a>(
     mask: &'a Mask,
-    (x, y): (isize, isize),
+    pos: Position,
     part_is_solid: bool,
     grid_settings: &GridSettings,
     on_command_line: Option<bool>,
@@ -258,7 +264,7 @@ fn placement_is_admissible<'a>(
     let mut grid = Grid::new(grid_settings);
     let (h, w) = grid.cells.dim();
 
-    if grid.place(mask, (x, y), 0).is_err() {
+    if grid.place(mask, pos, 0).is_err() {
         return false;
     }
 
@@ -321,7 +327,7 @@ fn placement_positions_for_mask<'a>(
     grid_settings: &GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
-) -> Vec<(isize, isize)> {
+) -> Vec<Position> {
     let mut positions = vec![];
 
     let (w, h) = mask.cells.dim();
@@ -330,9 +336,10 @@ fn placement_positions_for_mask<'a>(
 
     for y in (-h + 1)..h {
         for x in (-w + 1)..w {
+            let pos = Position { x, y };
             if !placement_is_admissible(
                 mask,
-                (x, y),
+                pos,
                 part_is_solid,
                 grid_settings,
                 on_command_line,
@@ -341,7 +348,7 @@ fn placement_positions_for_mask<'a>(
                 continue;
             }
 
-            positions.push((x, y));
+            positions.push(pos);
         }
     }
 
@@ -568,7 +575,8 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, (0, 0), 0).unwrap();
+        grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
+            .unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -606,7 +614,7 @@ mod tests {
         ]).unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (-1, 0), 0,),
+            grid.place(&super_armor, Position { x: -1, y: 0 }, 0,),
             Err(PlaceError::SourceClipped)
         );
 
@@ -646,7 +654,7 @@ mod tests {
         ]).unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (0, 0), 0),
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0),
             Err(PlaceError::DestinationClobbered)
         );
 
@@ -685,7 +693,8 @@ mod tests {
             Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
-        grid.place(&super_armor, (1, 0), 0).unwrap();
+        grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
+            .unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -712,7 +721,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (0, 0), 0,),
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
             Err(PlaceError::DestinationClobbered)
         );
     }
@@ -745,7 +754,8 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, (0, 0), 0).unwrap();
+        grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
+            .unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -782,7 +792,8 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, (1, 0), 0).unwrap();
+        grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
+            .unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -819,7 +830,8 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        grid.place(&super_armor, (-1, 0), 0).unwrap();
+        grid.place(&super_armor, Position { x: -1, y: 0 }, 0)
+            .unwrap();
 
         assert_eq!(grid.cells, expected_repr);
     }
@@ -846,7 +858,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (-1, -1), 0,),
+            grid.place(&super_armor, Position { x: -1, y: 1 }, 0,),
             Err(PlaceError::SourceClipped)
         );
     }
@@ -874,7 +886,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (6, 0), 0,),
+            grid.place(&super_armor, Position { x: 6, y: 0 }, 0,),
             Err(PlaceError::SourceClipped)
         );
     }
@@ -903,7 +915,7 @@ mod tests {
         .unwrap();
 
         assert_matches::assert_matches!(
-            grid.place(&super_armor, (0, 0), 0,),
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
             Err(PlaceError::DestinationClobbered)
         );
     }
@@ -937,34 +949,34 @@ mod tests {
                 None,
             ),
             vec![
-                (1, 0),
-                (2, 0),
-                (3, 0),
-                (4, 0),
-                (5, 0),
-                (0, 1),
-                (1, 1),
-                (2, 1),
-                (3, 1),
-                (4, 1),
-                (5, 1),
-                (0, 2),
-                (1, 2),
-                (2, 2),
-                (3, 2),
-                (4, 2),
-                (5, 2),
-                (0, 3),
-                (1, 3),
-                (2, 3),
-                (3, 3),
-                (4, 3),
-                (5, 3),
-                (1, 4),
-                (2, 4),
-                (3, 4),
-                (4, 4),
-                (5, 4)
+                Position { x: 1, y: 0 },
+                Position { x: 2, y: 0 },
+                Position { x: 3, y: 0 },
+                Position { x: 4, y: 0 },
+                Position { x: 5, y: 0 },
+                Position { x: 0, y: 1 },
+                Position { x: 1, y: 1 },
+                Position { x: 2, y: 1 },
+                Position { x: 3, y: 1 },
+                Position { x: 4, y: 1 },
+                Position { x: 5, y: 1 },
+                Position { x: 0, y: 2 },
+                Position { x: 1, y: 2 },
+                Position { x: 2, y: 2 },
+                Position { x: 3, y: 2 },
+                Position { x: 4, y: 2 },
+                Position { x: 5, y: 2 },
+                Position { x: 0, y: 3 },
+                Position { x: 1, y: 3 },
+                Position { x: 2, y: 3 },
+                Position { x: 3, y: 3 },
+                Position { x: 4, y: 3 },
+                Position { x: 5, y: 3 },
+                Position { x: 1, y: 4 },
+                Position { x: 2, y: 4 },
+                Position { x: 3, y: 4 },
+                Position { x: 4, y: 4 },
+                Position { x: 5, y: 4 }
             ]
         );
     }
@@ -998,24 +1010,24 @@ mod tests {
                 None,
             ),
             vec![
-                (0, 1),
-                (1, 1),
-                (2, 1),
-                (3, 1),
-                (4, 1),
-                (5, 1),
-                (0, 2),
-                (1, 2),
-                (2, 2),
-                (3, 2),
-                (4, 2),
-                (5, 2),
-                (0, 3),
-                (1, 3),
-                (2, 3),
-                (3, 3),
-                (4, 3),
-                (5, 3)
+                Position { x: 0, y: 1 },
+                Position { x: 1, y: 1 },
+                Position { x: 2, y: 1 },
+                Position { x: 3, y: 1 },
+                Position { x: 4, y: 1 },
+                Position { x: 5, y: 1 },
+                Position { x: 0, y: 2 },
+                Position { x: 1, y: 2 },
+                Position { x: 2, y: 2 },
+                Position { x: 3, y: 2 },
+                Position { x: 4, y: 2 },
+                Position { x: 5, y: 2 },
+                Position { x: 0, y: 3 },
+                Position { x: 1, y: 3 },
+                Position { x: 2, y: 3 },
+                Position { x: 3, y: 3 },
+                Position { x: 4, y: 3 },
+                Position { x: 5, y: 3 }
             ]
         );
     }
@@ -1049,18 +1061,18 @@ mod tests {
                 Some(false),
             ),
             vec![
-                (1, 1),
-                (2, 1),
-                (3, 1),
-                (4, 1),
-                (1, 2),
-                (2, 2),
-                (3, 2),
-                (4, 2),
-                (1, 3),
-                (2, 3),
-                (3, 3),
-                (4, 3)
+                Position { x: 1, y: 1 },
+                Position { x: 2, y: 1 },
+                Position { x: 3, y: 1 },
+                Position { x: 4, y: 1 },
+                Position { x: 1, y: 2 },
+                Position { x: 2, y: 2 },
+                Position { x: 3, y: 2 },
+                Position { x: 4, y: 2 },
+                Position { x: 1, y: 3 },
+                Position { x: 2, y: 3 },
+                Position { x: 3, y: 3 },
+                Position { x: 4, y: 3 }
             ]
         );
     }
@@ -1091,19 +1103,19 @@ mod tests {
             ),
             vec![
                 Location {
-                    position: (0, 0),
+                    position: Position { x: 0, y: 0 },
                     rotation: 0
                 },
                 Location {
-                    position: (1, 0),
+                    position: Position { x: 1, y: 0 },
                     rotation: 0
                 },
                 Location {
-                    position: (2, 0),
+                    position: Position { x: 2, y: 0 },
                     rotation: 0
                 },
                 Location {
-                    position: (0, 1),
+                    position: Position { x: 0, y: 1 },
                     rotation: 1
                 },
             ]
