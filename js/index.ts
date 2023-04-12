@@ -134,18 +134,24 @@ function drawGridView(
     ctx.lineWidth = BORDER_WIDTH;
 
     // First pass: draw background.
-    ctx.fillStyle = BG_FILL_COLOR;
     ctx.strokeStyle = BORDER_STROKE_COLOR;
-    ctx.fillRect(
-        0,
-        0,
-        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
-        gridSettings.height * CELL_SIZE + BORDER_WIDTH
-    );
     for (let y = 0; y < gridSettings.height; ++y) {
         for (let x = 0; x < gridSettings.width; ++x) {
             const px = x * CELL_SIZE + BORDER_WIDTH / 2;
             const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+
+            ctx.fillStyle = BG_FILL_COLOR;
+            if (
+                gridSettings.hasOob &&
+                ((x == 0 && y == 0) ||
+                    (x == 0 && y == gridSettings.height - 1) ||
+                    (x == gridSettings.width - 1 && y == 0) ||
+                    (x == gridSettings.width - 1 &&
+                        y == gridSettings.height - 1))
+            ) {
+                ctx.fillStyle = BORDER_STROKE_COLOR;
+            }
+            ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
 
             // top
             ctx.strokeRect(px, py, CELL_SIZE, 1);
@@ -249,6 +255,34 @@ function drawGridView(
 
     // Fifth pass: draw out of bounds overlay.
     if (gridSettings.hasOob) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.beginPath();
+        ctx.rect(
+            0,
+            0,
+            gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+            CELL_SIZE + BORDER_WIDTH
+        );
+        ctx.rect(
+            0,
+            gridSettings.height * CELL_SIZE - CELL_SIZE,
+            gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+            CELL_SIZE + BORDER_WIDTH
+        );
+        ctx.rect(
+            gridSettings.width * CELL_SIZE - CELL_SIZE,
+            0,
+            CELL_SIZE + BORDER_WIDTH,
+            gridSettings.height * CELL_SIZE + BORDER_WIDTH
+        );
+        ctx.rect(
+            0,
+            0,
+            CELL_SIZE + BORDER_WIDTH,
+            gridSettings.height * CELL_SIZE + BORDER_WIDTH
+        );
+        ctx.closePath();
+        ctx.fill();
     }
 }
 
@@ -286,15 +320,26 @@ function updateResults() {
 
     (async () => {
         let found = false;
-        for await (const solution of solver) {
-            found = true;
-            const cells = placeAll(parts, requirements, solution, gridSettings);
 
-            const wrapper = document.createElement("div");
-            results.appendChild(wrapper);
-            wrapper.appendChild(
-                createGridView(parts, requirements, cells, gridSettings)
-            );
+        try {
+            for await (const solution of solver) {
+                found = true;
+                const cells = placeAll(
+                    parts,
+                    requirements,
+                    solution,
+                    gridSettings
+                );
+
+                const wrapper = document.createElement("div");
+                results.appendChild(wrapper);
+                wrapper.appendChild(
+                    createGridView(parts, requirements, cells, gridSettings)
+                );
+            }
+        } finally {
+            solver.kill();
+            solver = null;
         }
 
         if (!found) {
