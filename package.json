@@ -1,5 +1,5 @@
 {
-    "name": "customsword",
+    "name": "fullcust",
     "version": "0.1.0",
     "scripts": {
         "build": "rimraf dist pkg && webpack",

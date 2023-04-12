@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "customsword"
+name = "fullcust"
 version = "0.1.0"
 dependencies = [
  "anyhow",
