@@ -22,12 +22,11 @@ pub struct Requirements(Vec<solver::Requirement>);
 pub struct GridSettings(solver::GridSettings);
 
 #[wasm_bindgen]
-pub fn solve(parts: Parts, requirements: Requirements, settings: GridSettings) {
-    solver::solve(
-        &parts.0.iter().collect::<Vec<_>>(),
-        &requirements.0.iter().collect::<Vec<_>>(),
-        &settings.0,
-    );
+pub struct SolutionIterator(Box<dyn Iterator<Item = solver::Solution>>);
+
+#[wasm_bindgen]
+pub fn solve(parts: Parts, requirements: Requirements, settings: GridSettings) -> SolutionIterator {
+    SolutionIterator(Box::new(solver::solve(parts.0, requirements.0, settings.0)))
 }
 
 pub fn main() -> Result<(), anyhow::Error> {

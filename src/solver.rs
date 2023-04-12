@@ -91,7 +91,7 @@ struct Grid {
 }
 
 impl Grid {
-    fn new(settings: &GridSettings) -> Self {
+    fn new(settings: GridSettings) -> Self {
         let mut cells = ndarray::Array2::from_elem((settings.height, settings.width), Cell::Empty);
 
         if settings.has_oob {
@@ -198,12 +198,12 @@ pub struct Constraint {
     pub bugged: Option<bool>,
 }
 
-type Solution = Vec<Placement>;
+pub type Solution = Vec<Placement>;
 
 fn requirements_are_admissible<'a>(
-    parts: &'a [&'a Part],
-    requirements: &'a [&'a Requirement],
-    grid_settings: &'a GridSettings,
+    parts: &'a [Part],
+    requirements: &'a [Requirement],
+    grid_settings: GridSettings,
 ) -> bool {
     // Mandatory check: blocks required to be on the command line must be less than or equal to the number of columns.
     if requirements
@@ -237,7 +237,7 @@ fn requirements_are_admissible<'a>(
     true
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct GridSettings {
     pub height: usize,
     pub width: usize,
@@ -255,7 +255,7 @@ fn placement_is_admissible<'a>(
     mask: &'a Mask,
     pos: Position,
     part_is_solid: bool,
-    grid_settings: &GridSettings,
+    grid_settings: GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> bool {
@@ -322,7 +322,7 @@ fn placement_is_admissible<'a>(
 fn placement_positions_for_mask<'a>(
     mask: &'a Mask,
     part_is_solid: bool,
-    grid_settings: &GridSettings,
+    grid_settings: GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> Vec<Position> {
@@ -356,7 +356,7 @@ fn placement_positions_for_mask<'a>(
 fn placement_locations_for_mask<'a>(
     mask: &'a Mask,
     part_is_solid: bool,
-    grid_settings: &GridSettings,
+    grid_settings: GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> Vec<Location> {
@@ -402,7 +402,7 @@ fn placement_locations_for_mask<'a>(
 
 fn placements<'a>(
     part: &'a Part,
-    grid_settings: &GridSettings,
+    grid_settings: GridSettings,
     constraint: &Constraint,
 ) -> Vec<Placement> {
     match constraint.compressed {
@@ -479,8 +479,8 @@ fn placements<'a>(
 }
 
 fn solution_is_admissible<'a>(
-    parts: &'a [&'a Part],
-    requirements: &'a [&'a Requirement],
+    parts: &'a [Part],
+    requirements: &'a [Requirement],
     grid: &'a Grid,
 ) -> bool {
     // Optional admissibility: check if same-colored blocks are appropriately touching/not touching.
@@ -537,13 +537,13 @@ fn solution_is_admissible<'a>(
     true
 }
 
-fn solve1<'a>(
-    parts: &'a [&'a Part],
-    requirements: &'a [&'a Requirement],
+fn solve1(
+    parts: std::rc::Rc<Vec<Part>>,
+    requirements: std::rc::Rc<Vec<Requirement>>,
     grid: Grid,
     mut candidates: Vec<(usize, Vec<Placement>)>,
     visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
-) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'a {
+) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'static {
     genawaiter::rc::gen!({
         let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
             candidate
@@ -572,7 +572,7 @@ fn solve1<'a>(
                 mask,
                 placement.loc.position,
                 part.is_solid,
-                &grid.settings(),
+                grid.settings(),
                 requirement.constraint.on_command_line,
                 requirement.constraint.bugged,
             ) {
@@ -598,8 +598,8 @@ fn solve1<'a>(
             }
 
             let solutions = solve1(
-                parts,
-                requirements,
+                parts.clone(),
+                requirements.clone(),
                 grid.clone(),
                 candidates.clone(),
                 visited.clone(),
@@ -609,7 +609,7 @@ fn solve1<'a>(
                 solution.push((req_idx, placement.clone()));
 
                 // Out of candidates! Do the final check.
-                if candidates.is_empty() && !solution_is_admissible(parts, requirements, &grid) {
+                if candidates.is_empty() && !solution_is_admissible(&parts, &requirements, &grid) {
                     continue;
                 }
 
@@ -620,13 +620,15 @@ fn solve1<'a>(
     .into_iter()
 }
 
-pub fn solve<'a>(
-    parts: &'a [&'a Part],
-    requirements: &'a [&'a Requirement],
-    settings: &'a GridSettings,
-) -> impl Iterator<Item = Solution> + 'a {
+pub fn solve(
+    parts: Vec<Part>,
+    requirements: Vec<Requirement>,
+    settings: GridSettings,
+) -> impl Iterator<Item = Solution> + 'static {
     genawaiter::rc::gen!({
-        if !requirements_are_admissible(parts, requirements, settings) {
+        let num_requirements = requirements.len();
+
+        if !requirements_are_admissible(&parts, &requirements, settings) {
             return;
         }
 
@@ -647,14 +649,14 @@ pub fn solve<'a>(
         candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
         for mut solution in solve1(
-            parts,
-            requirements,
+            std::rc::Rc::new(parts),
+            std::rc::Rc::new(requirements),
             Grid::new(settings),
             candidates,
             std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashSet::new())),
         ) {
             solution.sort_by_key(|(i, _)| *i);
-            assert!(solution.len() == requirements.len());
+            assert!(solution.len() == num_requirements);
             yield_!(solution.into_iter().map(|(_, p)| p).collect());
         }
     })
@@ -701,7 +703,7 @@ mod tests {
 
     #[test]
     fn test_grid_place() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -738,7 +740,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_error_source_clipped_does_not_mutate() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -779,7 +781,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_error_destination_clobbered_does_not_mutate() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -817,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_oob() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -854,7 +856,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_forbidden() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -879,7 +881,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_different_sizes() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -912,7 +914,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_nonzero_pos() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -949,7 +951,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_neg_pos() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -986,7 +988,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_source_clipped() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1014,7 +1016,7 @@ mod tests {
 
     #[test]
     fn test_grid_place_source_clipped_other_side() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1040,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_grid_destination_clobbered() {
-        let mut grid = Grid::new(&GridSettings {
+        let mut grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1085,7 +1087,7 @@ mod tests {
             placement_positions_for_mask(
                 &super_armor,
                 true,
-                &GridSettings {
+                GridSettings {
                     height: 7,
                     width: 7,
                     has_oob: true,
@@ -1147,7 +1149,7 @@ mod tests {
             placement_positions_for_mask(
                 &super_armor,
                 true,
-                &GridSettings {
+                GridSettings {
                     height: 7,
                     width: 7,
                     has_oob: true,
@@ -1199,7 +1201,7 @@ mod tests {
             placement_positions_for_mask(
                 &super_armor,
                 true,
-                &GridSettings {
+                GridSettings {
                     height: 7,
                     width: 7,
                     has_oob: true,
@@ -1241,7 +1243,7 @@ mod tests {
             placement_locations_for_mask(
                 &super_armor,
                 true,
-                &GridSettings {
+                GridSettings {
                     height: 3,
                     width: 3,
                     has_oob: false,
@@ -1310,13 +1312,13 @@ mod tests {
 
         assert_eq!(
             solve(
-                &[&Part {
+                vec![Part {
                     is_solid: true,
                     color: 0,
                     compressed_mask: super_armor.clone(),
                     uncompressed_mask: super_armor.clone(),
-                }][..],
-                &[&Requirement {
+                }],
+                vec![Requirement {
                     part_index: 0,
                     constraint: Constraint {
                         compressed: Some(true),
@@ -1324,7 +1326,7 @@ mod tests {
                         bugged: Some(false),
                     },
                 }],
-                &GridSettings {
+                GridSettings {
                     height: 3,
                     width: 3,
                     has_oob: false,
