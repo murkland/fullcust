@@ -245,7 +245,7 @@ pub struct GridSettings {
     pub command_line_row: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Placement {
     pub loc: Location,
     pub compressed: bool,
@@ -483,7 +483,58 @@ fn solution_is_admissible<'a>(
     requirements: &'a [Requirement],
     grid: &'a Grid,
 ) -> bool {
-    false
+    // Optional admissibility: check if same-colored blocks are appropriately touching/not touching.
+    //
+    // I don't think this can be done incrementally because it depends on the placement of all blocks. Consider:
+    //
+    // 1. Optionally touchSameColor block with color X is placed.
+    // 2. touchSameColor block with color Y is placed, greedily next to X.
+    // 3. touchSameColor block with color Z is placed, greedily next to X or Y.
+    //
+    // However, valid solutions also include those where X is not placed next to Y, e.g. only Y and Z are touching and X is not.
+    for (y, row) in grid.cells.rows().into_iter().enumerate() {
+        for (x, &cell) in row.into_iter().enumerate() {
+            let req_idx = if let Cell::Placed(req_idx) = cell {
+                req_idx
+            } else {
+                continue;
+            };
+            let requirement = &requirements[req_idx];
+            let part = &parts[requirement.part_index];
+
+            let touching_same_color = [
+                x.checked_sub(1).and_then(|x| grid.cells.get([y, x])),
+                x.checked_add(1).and_then(|x| grid.cells.get([y, x])),
+                y.checked_sub(1).and_then(|y| grid.cells.get([y, x])),
+                y.checked_add(1).and_then(|y| grid.cells.get([y, x])),
+            ]
+            .iter()
+            .any(|neighbor| {
+                let neighbor_req_idx = if let Some(Cell::Placed(req_idx)) = neighbor {
+                    *req_idx
+                } else {
+                    return false;
+                };
+
+                let neighbor_requirement = &requirements[neighbor_req_idx];
+                let neighbor_part = &parts[neighbor_requirement.part_index];
+
+                neighbor_requirement.part_index != requirement.part_index
+                    && neighbor_part.color == part.color
+            });
+
+            if requirement
+                .constraint
+                .bugged
+                .map(|bugged| bugged != touching_same_color)
+                .unwrap_or(false)
+            {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 fn solve1<'a>(
@@ -497,6 +548,7 @@ fn solve1<'a>(
         let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
             candidate
         } else {
+            yield_!(vec![]);
             return;
         };
 
@@ -511,7 +563,6 @@ fn solve1<'a>(
             }
             .rot(placement.loc.rotation);
 
-            // Check part admissibility.
             let mut grid = grid.clone();
             if !grid.place(mask, placement.loc.position, req_idx) {
                 continue;
@@ -528,7 +579,6 @@ fn solve1<'a>(
                 continue;
             }
 
-            // If we've already seen this configuration but this is just a different configuration of placements (e.g. placement at index 2 and 3 swapped around), don't bother searching further.
             let parts_string = grid
                 .cells
                 .iter()
@@ -1244,5 +1294,102 @@ mod tests {
         .unwrap();
 
         assert_eq!(super_armor.trimmed(), expected_super_armor);
+    }
+
+    #[test]
+    fn test_solve() {
+        let super_armor = Mask::new(
+            (3, 3),
+            vec![
+                true, false, false, //
+                true, true, false, //
+                true, false, false, //
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(
+            solve(
+                &[Part {
+                    is_solid: true,
+                    color: 0,
+                    compressed_mask: super_armor.clone(),
+                    uncompressed_mask: super_armor.clone(),
+                }][..],
+                &[Requirement {
+                    part_index: 0,
+                    constraint: Constraint {
+                        compressed: Some(true),
+                        on_command_line: Some(true),
+                        bugged: Some(false),
+                    },
+                }],
+                &GridSettings {
+                    height: 3,
+                    width: 3,
+                    has_oob: false,
+                    command_line_row: 1,
+                },
+            )
+            .collect::<Vec<_>>(),
+            vec![
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: 0 },
+                        rotation: 0
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 1, y: 0 },
+                        rotation: 0
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: 0 },
+                        rotation: 1
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: 1 },
+                        rotation: 1
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: -1, y: 0 },
+                        rotation: 2
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: 0 },
+                        rotation: 2
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: -1 },
+                        rotation: 3
+                    },
+                    compressed: true
+                }],
+                vec![Placement {
+                    loc: Location {
+                        position: Position { x: 0, y: 0 },
+                        rotation: 3
+                    },
+                    compressed: true
+                }]
+            ]
+        );
     }
 }
