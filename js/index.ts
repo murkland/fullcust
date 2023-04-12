@@ -1,6 +1,10 @@
-import { convertParts, GridSettings, Part, placeAll, Requirement, Solution, solve } from "./solver";
+import isEqual from "lodash-es/isEqual";
+
+import { convertParts, GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
 
 async function main() {
+    let requirements: Requirement[] = [];
+
     const data = await import("./bn6.json");
 
     const parts = convertParts(data.parts, 7, 7);
@@ -21,8 +25,6 @@ async function main() {
         option.value = i.toString();
         option.textContent = `${part.name}・${part.nameJa}`;
     }
-
-    const requirements: Requirement[] = [];
 
     const requirementsEl = document.getElementById("requirements")!;
 
@@ -421,7 +423,70 @@ async function main() {
         }
     }
 
+    interface CompressedRequirements {
+        i: number;
+        c: number;
+        b: number;
+        z: number;
+    }
+
+    function compressRequirements(
+        reqs: Requirement[]
+    ): CompressedRequirements[] {
+        return reqs.map((req) => ({
+            i: req.partIndex,
+            c:
+                req.constraint.onCommandLine === true
+                    ? 1
+                    : req.constraint.onCommandLine === false
+                    ? 0
+                    : -1,
+            b:
+                req.constraint.bugged === true
+                    ? 1
+                    : req.constraint.bugged === false
+                    ? 0
+                    : -1,
+            z:
+                req.constraint.compressed === true
+                    ? 1
+                    : req.constraint.compressed === false
+                    ? 0
+                    : -1,
+        }));
+    }
+
+    function uncompressRequirements(
+        cs: CompressedRequirements[]
+    ): Requirement[] {
+        return cs.map((cr) => ({
+            partIndex: cr.i,
+            constraint: {
+                onCommandLine: cr.c === 1 ? true : cr.c === 0 ? false : null,
+                bugged: cr.b === 1 ? true : cr.b === 0 ? false : null,
+                compressed: cr.z === 1 ? true : cr.z === 0 ? false : null,
+            },
+        }));
+    }
+
+    function loadHash() {
+        const hash = decodeURIComponent(location.hash.slice(1));
+        const reqs2 =
+            hash != "" ? uncompressRequirements(JSON.parse(hash)) : [];
+        if (isEqual(requirements, reqs2)) {
+            return;
+        }
+        requirements = reqs2;
+        update();
+    }
+
+    window.onhashchange = () => {
+        loadHash();
+    };
+
     function update() {
+        location.hash = JSON.stringify(compressRequirements(requirements));
+
         requirementsEl.innerHTML = "";
 
         for (let i = 0; i < requirements.length; ++i) {
@@ -508,6 +573,8 @@ async function main() {
         requirements.splice(0, requirements.length);
         update();
     };
+
+    loadHash();
 }
 
 main();
