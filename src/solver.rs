@@ -201,9 +201,9 @@ pub struct Constraint {
 type Solution = Vec<Placement>;
 
 fn requirements_are_admissible<'a>(
-    parts: &'a [Part],
-    requirements: &'a [Requirement],
-    grid_settings: &GridSettings,
+    parts: &'a [&'a Part],
+    requirements: &'a [&'a Requirement],
+    grid_settings: &'a GridSettings,
 ) -> bool {
     // Mandatory check: blocks required to be on the command line must be less than or equal to the number of columns.
     if requirements
@@ -479,8 +479,8 @@ fn placements<'a>(
 }
 
 fn solution_is_admissible<'a>(
-    parts: &'a [Part],
-    requirements: &'a [Requirement],
+    parts: &'a [&'a Part],
+    requirements: &'a [&'a Requirement],
     grid: &'a Grid,
 ) -> bool {
     // Optional admissibility: check if same-colored blocks are appropriately touching/not touching.
@@ -538,8 +538,8 @@ fn solution_is_admissible<'a>(
 }
 
 fn solve1<'a>(
-    parts: &'a [Part],
-    requirements: &'a [Requirement],
+    parts: &'a [&'a Part],
+    requirements: &'a [&'a Requirement],
     grid: Grid,
     mut candidates: Vec<(usize, Vec<Placement>)>,
     visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
@@ -621,8 +621,8 @@ fn solve1<'a>(
 }
 
 pub fn solve<'a>(
-    parts: &'a [Part],
-    requirements: &'a [Requirement],
+    parts: &'a [&'a Part],
+    requirements: &'a [&'a Requirement],
     settings: &'a GridSettings,
 ) -> impl Iterator<Item = Solution> + 'a {
     genawaiter::rc::gen!({
@@ -1310,13 +1310,13 @@ mod tests {
 
         assert_eq!(
             solve(
-                &[Part {
+                &[&Part {
                     is_solid: true,
                     color: 0,
                     compressed_mask: super_armor.clone(),
                     uncompressed_mask: super_armor.clone(),
                 }][..],
-                &[Requirement {
+                &[&Requirement {
                     part_index: 0,
                     constraint: Constraint {
                         compressed: Some(true),
