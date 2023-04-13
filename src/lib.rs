@@ -91,8 +91,3 @@ pub fn place_all(args: PlaceAllArgs) -> JsValue {
     ))
     .unwrap()
 }
-
-pub fn main() -> Result<(), anyhow::Error> {
-    log::info!("hello!");
-    Ok(())
-}
