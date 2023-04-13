@@ -156,12 +156,12 @@ async function main() {
 
         // First pass: draw background.
         ctx.strokeStyle = BORDER_STROKE_COLOR;
+        ctx.fillStyle = BG_FILL_COLOR;
         for (let y = 0; y < gridSettings.height; ++y) {
             for (let x = 0; x < gridSettings.width; ++x) {
                 const px = x * CELL_SIZE + BORDER_WIDTH / 2;
                 const py = y * CELL_SIZE + BORDER_WIDTH / 2;
 
-                ctx.fillStyle = BG_FILL_COLOR;
                 if (
                     gridSettings.hasOob &&
                     ((x == 0 && y == 0) ||
@@ -170,8 +170,9 @@ async function main() {
                         (x == gridSettings.width - 1 &&
                             y == gridSettings.height - 1))
                 ) {
-                    ctx.fillStyle = BORDER_STROKE_COLOR;
+                    continue;
                 }
+
                 ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
 
                 // top
@@ -233,6 +234,9 @@ async function main() {
         for (let y = 0; y < gridSettings.height; ++y) {
             for (let x = 0; x < gridSettings.width; ++x) {
                 const cell = cells[y * gridSettings.width + x];
+                if (cell == null) {
+                    continue;
+                }
 
                 const px = x * CELL_SIZE + BORDER_WIDTH / 2;
                 const py = y * CELL_SIZE + BORDER_WIDTH / 2;
@@ -286,28 +290,28 @@ async function main() {
             ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
             ctx.beginPath();
             ctx.rect(
+                CELL_SIZE,
                 0,
-                0,
-                gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+                (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2
             );
             ctx.rect(
-                0,
+                CELL_SIZE,
                 gridSettings.height * CELL_SIZE - CELL_SIZE - BORDER_WIDTH / 2,
-                gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+                (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2
             );
             ctx.rect(
                 gridSettings.width * CELL_SIZE - CELL_SIZE - BORDER_WIDTH / 2,
-                0,
+                CELL_SIZE,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2,
-                gridSettings.height * CELL_SIZE + BORDER_WIDTH
+                (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
             );
             ctx.rect(
                 0,
-                0,
+                CELL_SIZE,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2,
-                gridSettings.height * CELL_SIZE + BORDER_WIDTH
+                (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
             );
             ctx.closePath();
             ctx.fill();
