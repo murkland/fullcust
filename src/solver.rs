@@ -607,7 +607,7 @@ pub fn solve(
             let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
                 candidate
             } else {
-                yield_!(vec![]);
+                yield_!(Vec::with_capacity(requirements.len()));
                 return;
             };
 
