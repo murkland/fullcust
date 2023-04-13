@@ -10,6 +10,14 @@ crate-type = ["cdylib"]
 lto = true
 debug = true
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.release.wasm-bindgen]
+debug-js-glue = true
+demangle-name-section = true
+dwarf-debug-info = true
+
 [dependencies]
 wasm-bindgen = "0.2"
 log = "0.4"

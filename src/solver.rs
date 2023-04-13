@@ -272,19 +272,14 @@ pub struct Placement {
 }
 
 fn placement_is_admissible<'a>(
-    mask: &'a Mask,
-    pos: Position,
+    grid: &'a Grid,
     part_is_solid: bool,
-    grid_settings: GridSettings,
+    requirement_index: usize,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
 ) -> bool {
-    let mut grid = Grid::new(grid_settings);
     let (h, w) = grid.cells.dim();
-
-    if !grid.place(mask, pos, 0) {
-        return false;
-    }
+    let grid_settings = grid.settings();
 
     // Mandatory admissibility: ensure not everything is out of bounds.
     if grid_settings.has_oob
@@ -292,7 +287,7 @@ fn placement_is_admissible<'a>(
             .cells
             .slice(ndarray::s![1..h - 1, 1..w - 1])
             .iter()
-            .all(|v| !matches!(v, Cell::Placed(0)))
+            .all(|v| !matches!(v, Cell::Placed(req_idx) if requirement_index == *req_idx))
     {
         return false;
     }
@@ -303,22 +298,22 @@ fn placement_is_admissible<'a>(
             .cells
             .row(0)
             .iter()
-            .any(|cell| matches!(cell, Cell::Placed(0)))
+            .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
             || grid
                 .cells
                 .column(0)
                 .iter()
-                .any(|cell| matches!(cell, Cell::Placed(0)))
+                .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
             || grid
                 .cells
                 .row(h - 1)
                 .iter()
-                .any(|cell| matches!(cell, Cell::Placed(0)))
+                .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
             || grid
                 .cells
                 .column(w - 1)
                 .iter()
-                .any(|cell| matches!(cell, Cell::Placed(0)))
+                .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
         {
             return false;
         }
@@ -330,7 +325,7 @@ fn placement_is_admissible<'a>(
             .cells
             .row(grid.command_line_row)
             .iter()
-            .any(|c| matches!(c, Cell::Placed(0)));
+            .any(|c| matches!(c, Cell::Placed(req_idx) if requirement_index == *req_idx));
 
         if on_command_line
             .map(|on_command_line| on_command_line != placed_on_command_line)
@@ -365,14 +360,12 @@ fn placement_positions_for_mask<'a>(
     for y in (-h + 1)..h {
         for x in (-w + 1)..w {
             let pos = Position { x, y };
-            if !placement_is_admissible(
-                mask,
-                pos,
-                part_is_solid,
-                grid_settings,
-                on_command_line,
-                bugged,
-            ) {
+            let mut grid = Grid::new(grid_settings);
+            if !grid.place(mask, pos, 0) {
+                continue;
+            }
+
+            if !placement_is_admissible(&grid, part_is_solid, 0, on_command_line, bugged) {
                 continue;
             }
 
@@ -635,10 +628,9 @@ pub fn solve(
                 }
 
                 if !placement_is_admissible(
-                    mask,
-                    placement.loc.position,
+                    &grid,
                     part.is_solid,
-                    grid.settings(),
+                    req_idx,
                     requirement.constraint.on_command_line,
                     requirement.constraint.bugged,
                 ) {
@@ -717,7 +709,11 @@ pub fn solve(
             // If two blocks are just as hard to fit, make sure to group ones of the same type together.
             candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
 
-            log::info!("candidates took {:?}", instant::Instant::now() - start_time);
+            log::info!(
+                "candidates took {:?}, ordering: {:?}",
+                instant::Instant::now() - start_time,
+                candidates.iter().map(|(i, _)| *i).collect::<Vec<_>>()
+            );
             candidates
         };
 
