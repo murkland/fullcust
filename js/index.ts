@@ -297,12 +297,12 @@ async function main() {
             );
             ctx.rect(
                 CELL_SIZE,
-                gridSettings.height * CELL_SIZE - CELL_SIZE - BORDER_WIDTH / 2,
+                gridSettings.height * CELL_SIZE - CELL_SIZE,
                 (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2
             );
             ctx.rect(
-                gridSettings.width * CELL_SIZE - CELL_SIZE - BORDER_WIDTH / 2,
+                gridSettings.width * CELL_SIZE - CELL_SIZE,
                 CELL_SIZE,
                 CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2,
                 (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
