@@ -600,18 +600,19 @@ pub fn solve(
         parts: std::rc::Rc<Vec<Part>>,
         requirements: std::rc::Rc<Vec<Requirement>>,
         grid: Grid,
-        mut candidates: Vec<(usize, Vec<Placement>)>,
+        candidates: std::rc::Rc<Vec<(usize, Vec<Placement>)>>,
+        candidate_idx: usize,
         visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
     ) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'static {
         genawaiter::rc::gen!({
-            let (req_idx, placements) = if let Some(candidate) = candidates.pop() {
+            let (req_idx, placements) = if let Some(candidate) = candidates.get(candidate_idx) {
                 candidate
             } else {
                 yield_!(Vec::with_capacity(requirements.len()));
                 return;
             };
 
-            let requirement = &requirements[req_idx];
+            let requirement = &requirements[*req_idx];
             let part = &parts[requirement.part_index];
 
             for placement in placements {
@@ -623,14 +624,14 @@ pub fn solve(
                 .rotate(placement.loc.rotation);
 
                 let mut grid = grid.clone();
-                if !grid.place(mask, placement.loc.position, req_idx) {
+                if !grid.place(mask, placement.loc.position, *req_idx) {
                     continue;
                 }
 
                 if !placement_is_admissible(
                     &grid,
                     part.is_solid,
-                    req_idx,
+                    *req_idx,
                     requirement.constraint.on_command_line,
                     requirement.constraint.bugged,
                 ) {
@@ -660,11 +661,12 @@ pub fn solve(
                     requirements.clone(),
                     grid.clone(),
                     candidates.clone(),
+                    candidate_idx + 1,
                     visited.clone(),
                 )
                 .collect::<Vec<_>>();
                 for mut solution in solutions {
-                    solution.push((req_idx, placement.clone()));
+                    solution.push((*req_idx, placement.clone()));
 
                     // Out of candidates! Do the final check.
                     if candidates.is_empty()
@@ -721,7 +723,8 @@ pub fn solve(
             std::rc::Rc::new(parts),
             std::rc::Rc::new(requirements),
             Grid::new(grid_settings),
-            candidates,
+            std::rc::Rc::new(candidates),
+            0,
             std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashSet::new())),
         ) {
             solution.sort_by_key(|(i, _)| *i);
