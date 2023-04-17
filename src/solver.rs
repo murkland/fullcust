@@ -269,6 +269,11 @@ pub struct Placement {
     pub compressed: bool,
 }
 
+struct Candidate {
+    placement: Placement,
+    mask: Mask,
+}
+
 fn placement_is_admissible<'a>(
     grid: &'a Grid,
     part_is_solid: bool,
@@ -362,19 +367,24 @@ fn placement_positions_for_mask<'a>(
     positions
 }
 
-fn placement_locations_for_mask<'a>(
+fn placement_locations_and_masks_for_mask<'a>(
     mask: &'a Mask,
     part_is_solid: bool,
     grid_settings: GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
-) -> Vec<Location> {
+) -> Vec<(Location, Mask)> {
     let mut locations =
         placement_positions_for_mask(mask, part_is_solid, grid_settings, on_command_line, bugged)
             .into_iter()
-            .map(|p| Location {
-                position: p,
-                rotation: 0,
+            .map(|p| {
+                (
+                    Location {
+                        position: p,
+                        rotation: 0,
+                    },
+                    mask.clone(),
+                )
             })
             .collect::<Vec<_>>();
 
@@ -399,9 +409,14 @@ fn placement_locations_for_mask<'a>(
                 bugged,
             )
             .into_iter()
-            .map(|p| Location {
-                position: p,
-                rotation: i,
+            .map(|p| {
+                (
+                    Location {
+                        position: p,
+                        rotation: i,
+                    },
+                    mask.clone().into_owned(),
+                )
             }),
         );
     }
@@ -409,13 +424,13 @@ fn placement_locations_for_mask<'a>(
     locations
 }
 
-fn placements<'a>(
+fn candidates_for_part<'a>(
     part: &'a Part,
     grid_settings: GridSettings,
     constraint: &Constraint,
-) -> Vec<Placement> {
+) -> Vec<Candidate> {
     match constraint.compressed {
-        Some(true) => placement_locations_for_mask(
+        Some(true) => placement_locations_and_masks_for_mask(
             &part.compressed_mask,
             part.is_solid,
             grid_settings,
@@ -423,13 +438,16 @@ fn placements<'a>(
             constraint.bugged,
         )
         .into_iter()
-        .map(|loc| Placement {
-            loc,
-            compressed: true,
+        .map(|(loc, mask)| Candidate {
+            placement: Placement {
+                loc,
+                compressed: true,
+            },
+            mask,
         })
         .collect(),
 
-        Some(false) => placement_locations_for_mask(
+        Some(false) => placement_locations_and_masks_for_mask(
             &part.compressed_mask,
             part.is_solid,
             grid_settings,
@@ -437,28 +455,17 @@ fn placements<'a>(
             constraint.bugged,
         )
         .into_iter()
-        .map(|loc| Placement {
-            loc,
-            compressed: false,
+        .map(|(loc, mask)| Candidate {
+            placement: Placement {
+                loc,
+                compressed: false,
+            },
+            mask,
         })
         .collect(),
 
-        None if part.compressed_mask == part.uncompressed_mask => placement_locations_for_mask(
-            &part.compressed_mask,
-            part.is_solid,
-            grid_settings,
-            constraint.on_command_line,
-            constraint.bugged,
-        )
-        .into_iter()
-        .map(|loc| Placement {
-            loc,
-            compressed: true,
-        })
-        .collect(),
-
-        None => std::iter::Iterator::chain(
-            placement_locations_for_mask(
+        None if part.compressed_mask == part.uncompressed_mask => {
+            placement_locations_and_masks_for_mask(
                 &part.compressed_mask,
                 part.is_solid,
                 grid_settings,
@@ -466,11 +473,33 @@ fn placements<'a>(
                 constraint.bugged,
             )
             .into_iter()
-            .map(|loc| Placement {
-                loc,
-                compressed: true,
+            .map(|(loc, mask)| Candidate {
+                placement: Placement {
+                    loc,
+                    compressed: true,
+                },
+                mask,
+            })
+            .collect()
+        }
+
+        None => std::iter::Iterator::chain(
+            placement_locations_and_masks_for_mask(
+                &part.compressed_mask,
+                part.is_solid,
+                grid_settings,
+                constraint.on_command_line,
+                constraint.bugged,
+            )
+            .into_iter()
+            .map(|(loc, mask)| Candidate {
+                placement: Placement {
+                    loc,
+                    compressed: true,
+                },
+                mask,
             }),
-            placement_locations_for_mask(
+            placement_locations_and_masks_for_mask(
                 &part.uncompressed_mask,
                 part.is_solid,
                 grid_settings,
@@ -478,9 +507,12 @@ fn placements<'a>(
                 constraint.bugged,
             )
             .into_iter()
-            .map(|loc| Placement {
-                loc,
-                compressed: false,
+            .map(|(loc, mask)| Candidate {
+                placement: Placement {
+                    loc,
+                    compressed: false,
+                },
+                mask,
             }),
         )
         .collect(),
@@ -614,12 +646,12 @@ pub fn solve(
         parts: std::rc::Rc<Vec<Part>>,
         requirements: std::rc::Rc<Vec<Requirement>>,
         grid: Grid,
-        candidates: std::rc::Rc<Vec<(usize, Vec<Placement>)>>,
+        candidates: std::rc::Rc<Vec<(usize, Vec<Candidate>)>>,
         candidate_idx: usize,
         visited: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<Vec<Option<usize>>>>>,
     ) -> impl Iterator<Item = Vec<(usize, Placement)>> + 'static {
         genawaiter::rc::gen!({
-            let (req_idx, placements) = if let Some(candidate) = candidates.get(candidate_idx) {
+            let (req_idx, cands) = if let Some(candidate) = candidates.get(candidate_idx) {
                 candidate
             } else {
                 yield_!(Vec::with_capacity(requirements.len()));
@@ -629,17 +661,9 @@ pub fn solve(
             let requirement = &requirements[*req_idx];
             let part = &parts[requirement.part_index];
 
-            for placement in placements {
-                // Try place the part with the placement to see if it will even fit.
-                let mask = &if placement.compressed {
-                    &part.compressed_mask
-                } else {
-                    &part.uncompressed_mask
-                }
-                .rotate(placement.loc.rotation);
-
+            for candidate in cands {
                 let mut grid = grid.clone();
-                if !grid.place(mask, placement.loc.position, *req_idx) {
+                if !grid.place(&candidate.mask, candidate.placement.loc.position, *req_idx) {
                     continue;
                 }
 
@@ -682,7 +706,7 @@ pub fn solve(
                 )
                 .collect::<Vec<_>>();
                 for mut solution in solutions {
-                    solution.push((*req_idx, placement.clone()));
+                    solution.push((*req_idx, candidate.placement.clone()));
 
                     // Out of candidates! Do the final check.
                     if candidate_idx == candidates.len() - 1
@@ -718,7 +742,7 @@ pub fn solve(
                 .map(|(i, req)| {
                     (
                         i,
-                        placements(&parts[req.part_index], grid_settings, &req.constraint),
+                        candidates_for_part(&parts[req.part_index], grid_settings, &req.constraint),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -1315,52 +1339,6 @@ mod tests {
                 Position { x: 2, y: 3 },
                 Position { x: 3, y: 3 },
                 Position { x: 4, y: 3 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_placement_locations_for_mask() {
-        let super_armor = Mask {
-            height: 3,
-            width: 3,
-            cells: vec![
-                true, false, false, //
-                true, false, false, //
-                true, false, false, //
-            ],
-        };
-
-        assert_eq!(
-            placement_locations_for_mask(
-                &super_armor,
-                true,
-                GridSettings {
-                    height: 3,
-                    width: 3,
-                    has_oob: false,
-                    command_line_row: 1,
-                },
-                None,
-                Some(false),
-            ),
-            vec![
-                Location {
-                    position: Position { x: 0, y: 0 },
-                    rotation: 0
-                },
-                Location {
-                    position: Position { x: 1, y: 0 },
-                    rotation: 0
-                },
-                Location {
-                    position: Position { x: 2, y: 0 },
-                    rotation: 0
-                },
-                Location {
-                    position: Position { x: 0, y: 1 },
-                    rotation: 1
-                },
             ]
         );
     }

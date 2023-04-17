@@ -1,4 +1,4 @@
-mod solver;
+pub mod solver;
 
 use wasm_bindgen::prelude::*;
 
