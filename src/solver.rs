@@ -323,11 +323,13 @@ fn placement_is_admissible<'a>(
         return false;
     }
 
-    let placement_is_bugless = !out_of_bounds && (!part_is_solid || placed_on_command_line);
+    let placement_is_bugged = out_of_bounds || (part_is_solid && !placed_on_command_line);
 
-    bugged
-        .map(|bugged| bugged != placement_is_bugless)
-        .unwrap_or(true)
+    if bugged == Some(false) && placement_is_bugged {
+        return false;
+    }
+
+    true
 }
 
 fn placement_positions_for_mask<'a>(
@@ -491,26 +493,45 @@ fn solution_is_admissible<'a>(
     requirements: &'a [Requirement],
     grid: &'a Grid,
 ) -> bool {
-    // Optional admissibility: check if same-colored blocks are appropriately touching/not touching.
-    //
-    // I don't think this can be done incrementally because it depends on the placement of all blocks. Consider:
-    //
-    // 1. Optionally touchSameColor block with color X is placed.
-    // 2. touchSameColor block with color Y is placed, greedily next to X.
-    // 3. touchSameColor block with color Z is placed, greedily next to X or Y.
-    //
-    // However, valid solutions also include those where X is not placed next to Y, e.g. only Y and Z are touching and X is not.
+    #[derive(Clone, Copy, Debug, Default)]
+    struct PlacementDetail {
+        out_of_bounds: bool,
+        on_command_line: bool,
+        touching_same_color: bool,
+    }
+
+    let mut placement_details = vec![
+        PlacementDetail {
+            ..Default::default()
+        };
+        requirements.len()
+    ];
     for (y, row) in grid.cells.rows().into_iter().enumerate() {
         for (x, &cell) in row.into_iter().enumerate() {
-            let req_idx = if let Cell::Placed(req_idx) = cell {
-                req_idx
-            } else {
-                continue;
+            let req_idx = match cell {
+                Cell::Placed(req_idx) => req_idx,
+                _ => {
+                    continue;
+                }
             };
-            let requirement = &requirements[req_idx];
-            let part = &parts[requirement.part_index];
+            let req = &requirements[req_idx];
+            let part = &parts[req.part_index];
 
-            let touching_same_color = [
+            let placement_detail = &mut placement_details[req_idx];
+            let (h, w) = grid.cells.dim();
+
+            // Optional admissibility: check if a block has/doesn't have any out of bounds parts.
+            if grid.has_oob && (x == 0 || x == w - 1 || y == h - 1 || x == w - 1) {
+                placement_detail.out_of_bounds = true;
+            }
+
+            // Optional admissibility: check if a block is/isn't on the command line.
+            if y == grid.command_line_row {
+                placement_detail.on_command_line = true;
+            }
+
+            // Optional admissibility: check if same-colored blocks are appropriately touching/not touching.
+            if [
                 x.checked_sub(1).and_then(|x| grid.cells.get([y, x])),
                 x.checked_add(1).and_then(|x| grid.cells.get([y, x])),
                 y.checked_sub(1).and_then(|y| grid.cells.get([y, x])),
@@ -528,16 +549,25 @@ fn solution_is_admissible<'a>(
                 let neighbor_part = &parts[neighbor_requirement.part_index];
 
                 neighbor_req_idx != req_idx && neighbor_part.color == part.color
-            });
-
-            if requirement
-                .constraint
-                .bugged
-                .map(|bugged| bugged != touching_same_color)
-                .unwrap_or(false)
-            {
-                return false;
+            }) {
+                placement_detail.touching_same_color = true;
             }
+        }
+    }
+
+    for (req, placement_detail) in requirements.iter().zip(placement_details) {
+        let part = &parts[req.part_index];
+        let placement_is_bugged = placement_detail.out_of_bounds
+            || (part.is_solid && !placement_detail.on_command_line)
+            || placement_detail.touching_same_color;
+
+        if req
+            .constraint
+            .bugged
+            .map(|bugged| bugged != placement_is_bugged)
+            .unwrap_or(false)
+        {
+            return false;
         }
     }
 
@@ -654,7 +684,7 @@ pub fn solve(
                     solution.push((*req_idx, placement.clone()));
 
                     // Out of candidates! Do the final check.
-                    if candidates.is_empty()
+                    if candidate_idx == candidates.len() - 1
                         && !solution_is_admissible(&parts, &requirements, &grid)
                     {
                         continue;
