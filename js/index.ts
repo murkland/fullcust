@@ -410,7 +410,7 @@ async function main() {
                 }
 
                 (async () => {
-                    for (;;) {
+                    while (true) {
                         const { value: solution, done } = await it.next();
 
                         if (done) {
@@ -437,7 +437,8 @@ async function main() {
                         );
 
                         const clientRect = spinner.getBoundingClientRect();
-                        if (clientRect.top > window.innerHeight) {
+                        const overscroll = 100;
+                        if (clientRect.top - overscroll > window.innerHeight) {
                             break;
                         }
                     }
