@@ -293,56 +293,41 @@ fn placement_is_admissible<'a>(
     }
 
     // Optional admissibility: check if the block is appropriately in/out of bounds.
-    if bugged == Some(false) && grid_settings.has_oob {
-        if grid
-            .cells
-            .row(0)
-            .iter()
-            .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
-            || grid
-                .cells
-                .column(0)
+    let out_of_bounds =
+        if grid_settings.has_oob {
+            grid.cells
+                .row(0)
                 .iter()
                 .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
-            || grid
-                .cells
-                .row(h - 1)
-                .iter()
-                .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
-            || grid
-                .cells
-                .column(w - 1)
-                .iter()
-                .any(|cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx))
-        {
-            return false;
-        }
-    }
+                || grid.cells.column(0).iter().any(
+                    |cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx),
+                )
+                || grid.cells.row(h - 1).iter().any(
+                    |cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx),
+                )
+                || grid.cells.column(w - 1).iter().any(
+                    |cell| matches!(cell, Cell::Placed(req_idx) if requirement_index == *req_idx),
+                )
+        } else {
+            false
+        };
 
     // Optional admissibility: check if the block is appropriately on/off the command line.
-    if on_command_line != None || bugged != None {
-        let placed_on_command_line = grid
-            .cells
-            .row(grid.command_line_row)
-            .iter()
-            .any(|c| matches!(c, Cell::Placed(req_idx) if requirement_index == *req_idx));
+    let placed_on_command_line = grid
+        .cells
+        .row(grid.command_line_row)
+        .iter()
+        .any(|c| matches!(c, Cell::Placed(req_idx) if requirement_index == *req_idx));
 
-        if on_command_line
-            .map(|on_command_line| on_command_line != placed_on_command_line)
-            .unwrap_or(false)
-        {
-            return false;
-        }
-
-        if bugged
-            .map(|bugged| !bugged && part_is_solid != placed_on_command_line)
-            .unwrap_or(false)
-        {
-            return false;
-        }
+    if on_command_line == Some(true) && !placed_on_command_line {
+        return false;
     }
 
-    true
+    let placement_is_bugless = !out_of_bounds && (!part_is_solid || placed_on_command_line);
+
+    bugged
+        .map(|bugged| bugged != placement_is_bugless)
+        .unwrap_or(true)
 }
 
 fn placement_positions_for_mask<'a>(
