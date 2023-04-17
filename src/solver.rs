@@ -325,6 +325,7 @@ fn placement_is_admissible<'a>(
 
     let placement_is_bugged = out_of_bounds || (part_is_solid && !placed_on_command_line);
 
+    // It is not possible to know if a piece is definitively not bugged, as it must pass the coloring check later also.
     if bugged == Some(false) && placement_is_bugged {
         return false;
     }
