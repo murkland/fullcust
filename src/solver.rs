@@ -654,7 +654,7 @@ pub fn solve(
                     continue;
                 }
 
-                let parts_string = grid
+                let grid_by_parts = grid
                     .cells
                     .iter()
                     .map(|cell| match cell {
@@ -666,10 +666,10 @@ pub fn solve(
                     .collect::<Vec<_>>();
                 {
                     let mut visited = visited.borrow_mut();
-                    if visited.contains(&parts_string) {
+                    if visited.contains(&grid_by_parts) {
                         continue;
                     }
-                    visited.insert(parts_string);
+                    visited.insert(grid_by_parts);
                 }
 
                 let solutions = solve_helper(
