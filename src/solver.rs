@@ -228,14 +228,12 @@ fn requirements_are_admissible<'a>(
         .iter()
         .filter(|req| req.constraint.on_command_line == Some(true))
         .count()
-        > grid_settings.width
+        > grid_settings.width - if grid_settings.has_oob { 2 } else { 0 }
     {
         return false;
     }
 
     // Mandatory check: total number of squares must be less than the total allowed space.
-    let max_empty_cells =
-        grid_settings.width * grid_settings.height - if grid_settings.has_oob { 4 } else { 0 };
     if requirements
         .iter()
         .map(|req| {
@@ -247,7 +245,7 @@ fn requirements_are_admissible<'a>(
             }
         })
         .sum::<usize>()
-        >= max_empty_cells
+        >= grid_settings.width * grid_settings.height - if grid_settings.has_oob { 4 } else { 0 }
     {
         return false;
     }
@@ -632,6 +630,7 @@ pub fn solve(
             let part = &parts[requirement.part_index];
 
             for placement in placements {
+                // Try place the part with the placement to see if it will even fit.
                 let mask = &if placement.compressed {
                     &part.compressed_mask
                 } else {
@@ -654,6 +653,7 @@ pub fn solve(
                     continue;
                 }
 
+                // Ensure that we haven't seen this arrangement of parts before.
                 let grid_by_parts = grid
                     .cells
                     .iter()
@@ -705,6 +705,7 @@ pub fn solve(
 
         let num_requirements = requirements.len();
 
+        // Very cheap check to see if this is even solvable at all.
         if !requirements_are_admissible(&parts, &requirements, grid_settings) {
             return;
         }
