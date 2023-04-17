@@ -1,6 +1,13 @@
 import isEqual from "lodash-es/isEqual";
 
-import { convertParts, GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
+import {
+    convertParts,
+    GridSettings,
+    Part,
+    placeAll,
+    Requirement,
+    Solution,
+} from "./solver";
 
 async function main() {
     let requirements: Requirement[] = [];
@@ -354,6 +361,8 @@ async function main() {
     let solver: Solver | null = null;
 
     function updateResults() {
+        location.hash = JSON.stringify(compressRequirements(requirements));
+
         results.innerHTML = "";
         noResults.style.display = "none";
         noRequirements.style.display = "none";
@@ -558,8 +567,6 @@ async function main() {
     };
 
     function update() {
-        location.hash = JSON.stringify(compressRequirements(requirements));
-
         requirementsEl.innerHTML = "";
 
         for (let i = 0; i < requirements.length; ++i) {
