@@ -725,12 +725,15 @@ pub fn solve(
             // Heuristic: fit hard to fit blocks first, then easier ones.
             //
             // If two blocks are just as hard to fit, make sure to group ones of the same type together.
-            candidates.sort_unstable_by_key(|(i, c)| (std::cmp::Reverse(c.len()), *i));
+            candidates.sort_unstable_by_key(|(i, c)| (c.len(), *i));
 
             log::info!(
                 "candidates took {:?}, ordering: {:?}",
                 instant::Instant::now() - start_time,
-                candidates.iter().map(|(i, _)| *i).collect::<Vec<_>>()
+                candidates
+                    .iter()
+                    .map(|(i, c)| (*i, c.len()))
+                    .collect::<Vec<_>>()
             );
             candidates
         };
