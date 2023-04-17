@@ -131,7 +131,7 @@ impl Grid {
         }
     }
 
-    fn place(&mut self, mask: &Mask, pos: Position, requirement_index: usize) -> bool {
+    fn place(mut self, mask: &Mask, pos: Position, requirement_index: usize) -> Option<Grid> {
         let (h, w) = self.cells.dim();
 
         let (src_y, dst_y) = if pos.y < 0 {
@@ -157,24 +157,11 @@ impl Grid {
                 }
 
                 if v {
-                    return false;
+                    return None;
                 }
             }
         }
 
-        // Validate we're not clobbering over the destination.
-        for (src_row, dst_row) in std::iter::zip(
-            mask_ndarray.slice(ndarray::s![src_y.., src_x..]).rows(),
-            self.cells.slice(ndarray::s![dst_y.., dst_x..]).rows(),
-        ) {
-            for (src, dst) in std::iter::zip(src_row, dst_row) {
-                if *src && !matches!(dst, Cell::Empty) {
-                    return false;
-                }
-            }
-        }
-
-        // After this, we will start mutating.
         for (src_row, dst_row) in std::iter::zip(
             mask_ndarray.slice(ndarray::s![src_y.., src_x..]).rows(),
             self.cells
@@ -183,12 +170,15 @@ impl Grid {
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
                 if *src {
+                    if !matches!(dst, Cell::Empty) {
+                        return None;
+                    }
                     *dst = Cell::Placed(requirement_index);
                 }
             }
         }
 
-        true
+        Some(self)
     }
 }
 
@@ -351,10 +341,11 @@ fn placement_positions_for_mask<'a>(
     for y in (-h + 1)..h {
         for x in (-w + 1)..w {
             let pos = Position { x, y };
-            let mut grid = Grid::new(grid_settings);
-            if !grid.place(mask, pos, 0) {
+            let grid = if let Some(grid) = Grid::new(grid_settings).place(mask, pos, 0) {
+                grid
+            } else {
                 continue;
-            }
+            };
 
             if !placement_is_admissible(&grid, part_is_solid, 0, on_command_line, bugged) {
                 continue;
@@ -621,9 +612,11 @@ pub fn place_all(
             &part.uncompressed_mask
         }
         .rotate(placement.loc.rotation);
-        if !grid.place(mask, placement.loc.position, req_idx) {
+        grid = if let Some(grid) = grid.place(mask, placement.loc.position, req_idx) {
+            grid
+        } else {
             return None;
-        }
+        };
     }
 
     Some(
@@ -662,10 +655,15 @@ pub fn solve(
             let part = &parts[requirement.part_index];
 
             for candidate in cands {
-                let mut grid = grid.clone();
-                if !grid.place(&candidate.mask, candidate.placement.loc.position, *req_idx) {
+                let grid = grid.clone();
+                let grid = if let Some(grid) =
+                    grid.clone()
+                        .place(&candidate.mask, candidate.placement.loc.position, *req_idx)
+                {
+                    grid
+                } else {
                     continue;
-                }
+                };
 
                 if !placement_is_admissible(
                     &grid,
@@ -819,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_grid_place() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -850,13 +848,17 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        assert!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0));
-        assert_eq!(grid.cells, expected_repr);
+        assert_eq!(
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
+                .unwrap()
+                .cells,
+            expected_repr
+        );
     }
 
     #[test]
     fn test_grid_place_error_source_clipped_does_not_mutate() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -876,28 +878,15 @@ mod tests {
             ],
         };
 
-        #[rustfmt::skip]
-        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-        ]).unwrap();
-
-        assert_eq!(
+        assert!(matches!(
             grid.place(&super_armor, Position { x: -1, y: 0 }, 0,),
-            false
-        );
-
-        assert_eq!(grid.cells, expected_repr);
+            None
+        ));
     }
 
     #[test]
     fn test_grid_place_error_destination_clobbered_does_not_mutate() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -917,25 +906,15 @@ mod tests {
             ],
         };
 
-        #[rustfmt::skip]
-        let expected_repr = ndarray::Array2::from_shape_vec((7, 7), vec![
-            Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
-            Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
-        ]).unwrap();
-
-        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0), false);
-
-        assert_eq!(grid.cells, expected_repr);
+        assert!(matches!(
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0),
+            None
+        ));
     }
 
     #[test]
     fn test_grid_place_oob() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -966,13 +945,17 @@ mod tests {
             Cell::Forbidden, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Forbidden,
         ]).unwrap();
 
-        assert!(grid.place(&super_armor, Position { x: 1, y: 0 }, 0));
-        assert_eq!(grid.cells, expected_repr);
+        assert_eq!(
+            grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
+                .unwrap()
+                .cells,
+            expected_repr
+        );
     }
 
     #[test]
     fn test_grid_place_forbidden() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: true,
@@ -992,12 +975,15 @@ mod tests {
             ],
         };
 
-        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
+        assert!(matches!(
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
+            None
+        ));
     }
 
     #[test]
     fn test_grid_place_different_sizes() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1024,13 +1010,17 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        assert!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0));
-        assert_eq!(grid.cells, expected_repr);
+        assert_eq!(
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0)
+                .unwrap()
+                .cells,
+            expected_repr
+        );
     }
 
     #[test]
     fn test_grid_place_nonzero_pos() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1061,13 +1051,17 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        assert!(grid.place(&super_armor, Position { x: 1, y: 0 }, 0));
-        assert_eq!(grid.cells, expected_repr);
+        assert_eq!(
+            grid.place(&super_armor, Position { x: 1, y: 0 }, 0)
+                .unwrap()
+                .cells,
+            expected_repr
+        );
     }
 
     #[test]
     fn test_grid_place_neg_pos() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1098,41 +1092,45 @@ mod tests {
             Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty, Cell::Empty,
         ]).unwrap();
 
-        assert!(grid.place(&super_armor, Position { x: -1, y: 0 }, 0));
-        assert_eq!(grid.cells, expected_repr);
-    }
-
-    #[test]
-    fn test_grid_place_source_clipped() {
-        let mut grid = Grid::new(GridSettings {
-            height: 7,
-            width: 7,
-            has_oob: false,
-            command_line_row: 3,
-        });
-        let super_armor = Mask {
-            height: 7,
-            width: 7,
-            cells: vec![
-                true, false, false, false, false, false, false, //
-                true, true, false, false, false, false, false, //
-                true, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-                false, false, false, false, false, false, false, //
-            ],
-        };
-
         assert_eq!(
-            grid.place(&super_armor, Position { x: -1, y: 1 }, 0,),
-            false
+            grid.place(&super_armor, Position { x: -1, y: 0 }, 0)
+                .unwrap()
+                .cells,
+            expected_repr
         );
     }
 
     #[test]
+    fn test_grid_place_source_clipped() {
+        let grid = Grid::new(GridSettings {
+            height: 7,
+            width: 7,
+            has_oob: false,
+            command_line_row: 3,
+        });
+        let super_armor = Mask {
+            height: 7,
+            width: 7,
+            cells: vec![
+                true, false, false, false, false, false, false, //
+                true, true, false, false, false, false, false, //
+                true, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+                false, false, false, false, false, false, false, //
+            ],
+        };
+
+        assert!(matches!(
+            grid.place(&super_armor, Position { x: -1, y: 1 }, 0,),
+            None
+        ));
+    }
+
+    #[test]
     fn test_grid_place_source_clipped_other_side() {
-        let mut grid = Grid::new(GridSettings {
+        let grid = Grid::new(GridSettings {
             height: 7,
             width: 7,
             has_oob: false,
@@ -1153,7 +1151,10 @@ mod tests {
             ],
         };
 
-        assert_eq!(grid.place(&super_armor, Position { x: 6, y: 0 }, 0,), false);
+        assert!(matches!(
+            grid.place(&super_armor, Position { x: 6, y: 0 }, 0,),
+            None
+        ));
     }
 
     #[test]
@@ -1180,7 +1181,10 @@ mod tests {
             ],
         };
 
-        assert_eq!(grid.place(&super_armor, Position { x: 0, y: 0 }, 0,), false);
+        assert!(matches!(
+            grid.place(&super_armor, Position { x: 0, y: 0 }, 0,),
+            None
+        ));
     }
 
     #[test]
@@ -1357,7 +1361,7 @@ mod tests {
 
         let expected_super_armor = Mask {
             height: 3,
-            width: 3,
+            width: 1,
             cells: vec![
                 true, //
                 true, //
