@@ -58,45 +58,47 @@
                 <ol class="list-group" id="requirements"></ol>
             </div>
 
-            <div class="accordion accordion-flush" id="extra-settings">
-                <h2 class="accordion-header" id="extra-settings-header">
-                    <button
-                        class="accordion-button collapsed"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#extra-settings-body"
-                        aria-expanded="true"
-                        aria-controls="extra-settings-body"
+            <div class="accordion mb-2" id="extra-settings">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="extra-settings-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#extra-settings-body"
+                            aria-expanded="false"
+                            aria-controls="extra-settings-body"
+                        >
+                            Extra settings・追加設定
+                        </button>
+                    </h2>
+                    <div
+                        id="extra-settings-body"
+                        class="accordion-collapse collapse"
+                        aria-labelledby="extra-settings-header"
+                        data-bs-parent="#extra-settings"
                     >
-                        Extra settings・追加設定
-                    </button>
-                </h2>
-                <div
-                    id="extra-settings-body"
-                    class="accordion-collapse collapse"
-                    aria-labelledby="extra-settings-header"
-                    data-bs-parent="#extra-settings"
-                >
-                    <div class="accordion-body">
-                        <div class="row mb-2">
-                            <label
-                                for="expansion-memories"
-                                class="col-sm-4 col-form-label"
-                                >Expansion memory・拡張メモリ</label
-                            >
-                            <div class="col-sm-8">
-                                <select
-                                    class="form-select form-select-small"
-                                    id="expansion-memories"
+                        <div class="accordion-body">
+                            <div class="row mb-2">
+                                <label
+                                    for="expansion-memories"
+                                    class="col-sm-4 col-form-label"
+                                    >Expansion memory・拡張メモリ</label
                                 >
-                                    <option value="0">4×4</option>
-                                    <option value="1">5×4</option>
-                                    <option value="2" selected>5×5</option>
-                                </select>
+                                <div class="col-sm-8">
+                                    <select
+                                        class="form-select form-select-small"
+                                        id="expansion-memories"
+                                    >
+                                        <option value="0">4×4</option>
+                                        <option value="1">5×4</option>
+                                        <option value="2" selected>5×5</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
 
-                        <div id="spinnable" class="mb-2"></div>
+                            <div id="spinnable" class="mb-2"></div>
+                        </div>
                     </div>
                 </div>
             </div>
