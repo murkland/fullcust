@@ -80,7 +80,7 @@ async function main() {
     interface State {
         requirements: Requirement[];
         spinnableColors: boolean[];
-        expansions: number;
+        expansionMemories: number;
     }
     let state: State;
 
@@ -88,15 +88,18 @@ async function main() {
         return {
             requirements: [],
             spinnableColors: data.colors.map((_: string) => true),
-            expansions: 2,
+            expansionMemories: 2,
         };
     }
 
     function gridSettings(): GridSettings {
         return {
             ...data.gridSettings,
-            height: data.gridSettings.height - (state.expansions < 2 ? 1 : 0),
-            width: data.gridSettings.width - (state.expansions < 1 ? 1 : 0),
+            height:
+                data.gridSettings.height -
+                (state.expansionMemories < 2 ? 1 : 0),
+            width:
+                data.gridSettings.width - (state.expansionMemories < 1 ? 1 : 0),
         };
     }
 
@@ -136,6 +139,14 @@ async function main() {
         data.gridSettings.height,
         data.gridSettings.width
     );
+
+    const expansionMemories = document.getElementById(
+        "expansion-memories"
+    )! as HTMLSelectElement;
+    expansionMemories.onchange = () => {
+        state.expansionMemories = parseInt(expansionMemories.value, 10);
+        updateResults();
+    };
 
     const partSelect = document.getElementById(
         "part-select"
@@ -602,7 +613,7 @@ async function main() {
                         : -1,
             })),
             s: state.spinnableColors.map((v) => (v ? 1 : 0)),
-            x: state.expansions,
+            x: state.expansionMemories,
         });
     }
 
@@ -628,7 +639,7 @@ async function main() {
                 },
             })),
             spinnableColors: j.s.map((v) => !!v),
-            expansions: j.x,
+            expansionMemories: j.x,
         };
     }
 
