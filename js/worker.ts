@@ -6,8 +6,11 @@ self.onmessage = function (e) {
     console.time(e.data.type);
     switch (e.data.type) {
         case "init": {
-            const { parts, requirements, gridSettings } = e.data.args;
-            it = solve(parts, requirements, gridSettings)[Symbol.iterator]();
+            const { parts, requirements, gridSettings, spinnableColors } =
+                e.data.args;
+            it = solve(parts, requirements, gridSettings, spinnableColors)[
+                Symbol.iterator
+            ]();
             break;
         }
 

@@ -9,9 +9,64 @@ import {
     Solution,
 } from "./solver";
 
-async function main() {
-    let requirements: Requirement[] = [];
+const COLORS = {
+    red: {
+        name: "red",
+        nameJa: "レッド",
+        solid: "#de1000",
+        plus: "#bd0000",
+    },
+    pink: {
+        name: "pink",
+        nameJa: "ピンク",
+        solid: "#de8cc6",
+        plus: "#bd6ba5",
+    },
+    yellow: {
+        name: "yellow",
+        nameJa: "イエロー",
+        solid: "#dede00",
+        plus: "#bdbd00",
+    },
+    green: {
+        name: "green",
+        nameJa: "グリーン",
+        solid: "#18c600",
+        plus: "#00a500",
+    },
+    blue: {
+        name: "blue",
+        nameJa: "ブルー",
+        solid: "#2984de",
+        plus: "#0860b8",
+    },
+    white: {
+        name: "white",
+        nameJa: "ホワイト",
+        solid: "#dedede",
+        plus: "#bdbdbd",
+    },
+    orange: {
+        name: "orange",
+        nameJa: "オレンジ",
+        solid: "#de7b00",
+        plus: "#bd5a00",
+    },
+    purple: {
+        name: "purple",
+        nameJa: "パープル",
+        solid: "#9400ce",
+        plus: "#7300ad",
+    },
+    gray: {
+        name: "gray",
+        nameJa: "グレー",
+        solid: "#848484",
+        plus: "#636363",
+    },
+};
 
+async function main() {
     const queryParams = new URLSearchParams(location.search);
     const game = queryParams.get("game") || "bn6";
 
@@ -21,12 +76,67 @@ async function main() {
         .classList.add("active");
 
     const data = await import(`./${game}.json`);
-    const gridSettings: GridSettings = data.gridSettings;
+
+    interface State {
+        requirements: Requirement[];
+        spinnableColors: boolean[];
+        gridHeight: number;
+        gridWidth: number;
+    }
+    let state: State;
+
+    function emptyState(): State {
+        return {
+            requirements: [],
+            spinnableColors: data.colors.map((_: string) => true),
+            gridHeight: data.gridSettings.height,
+            gridWidth: data.gridSettings.width,
+        };
+    }
+
+    function gridSettings(): GridSettings {
+        return {
+            ...data.gridSettings,
+            height: state.gridHeight,
+            width: state.gridWidth,
+        };
+    }
+
+    state = emptyState();
+
+    const spinnable = document.getElementById("spinnable")!;
+    for (let i = 1; i < data.colors.length; ++i) {
+        const color = data.colors[i];
+        const div = document.createElement("div");
+        spinnable.appendChild(div);
+        div.className = "form-check form-check-inline";
+
+        const checkbox = document.createElement("input");
+        div.appendChild(checkbox);
+        checkbox.type = "checkbox";
+        checkbox.checked = state.spinnableColors[i];
+        checkbox.onchange = ((i: number) => {
+            state.spinnableColors[i] = checkbox.checked;
+            updateResults();
+        }).bind(this, i);
+        checkbox.className = "form-check-input";
+        checkbox.id = `spinnable-${color}`;
+
+        const label = document.createElement("label");
+        div.appendChild(label);
+        label.innerText = `spin ${
+            COLORS[color as keyof typeof COLORS].name
+        }・スピン${COLORS[color as keyof typeof COLORS].nameJa}`;
+        label.className = "form-check-label px-2 rounded";
+        label.style.backgroundColor =
+            COLORS[color as keyof typeof COLORS].solid;
+        label.htmlFor = checkbox.id;
+    }
 
     const parts = convertParts(
         data.parts,
-        gridSettings.height,
-        gridSettings.width
+        data.gridSettings.height,
+        data.gridSettings.width
     );
 
     const partSelect = document.getElementById(
@@ -53,7 +163,7 @@ async function main() {
         const partIndex = parseInt(partSelect.value, 10);
         const part = parts[partIndex];
 
-        requirements.push({
+        state.requirements.push({
             partIndex,
             constraint: {
                 bugged: null,
@@ -105,45 +215,6 @@ async function main() {
     }
 
     const CELL_SIZE = 48;
-
-    const COLORS = {
-        red: {
-            solid: "#de1000",
-            plus: "#bd0000",
-        },
-        pink: {
-            solid: "#de8cc6",
-            plus: "#bd6ba5",
-        },
-        yellow: {
-            solid: "#dede00",
-            plus: "#bdbd00",
-        },
-        green: {
-            solid: "#18c600",
-            plus: "#00a500",
-        },
-        blue: {
-            solid: "#2984de",
-            plus: "#0860b8",
-        },
-        white: {
-            solid: "#dedede",
-            plus: "#bdbdbd",
-        },
-        orange: {
-            solid: "#de7b00",
-            plus: "#bd5a00",
-        },
-        purple: {
-            solid: "#9400ce",
-            plus: "#7300ad",
-        },
-        gray: {
-            solid: "#848484",
-            plus: "#636363",
-        },
-    };
 
     const BORDER_WIDTH = 4;
     const BG_FILL_COLOR = "#202020";
@@ -361,13 +432,13 @@ async function main() {
     let solver: Solver | null = null;
 
     function updateResults() {
-        location.hash = JSON.stringify(compressRequirements(requirements));
+        location.hash = toHashString(state);
 
         results.innerHTML = "";
         noResults.style.display = "none";
         noRequirements.style.display = "none";
 
-        if (requirements.length == 0) {
+        if (state.requirements.length == 0) {
             noRequirements.style.display = "";
             return;
         }
@@ -376,9 +447,15 @@ async function main() {
             solver.kill();
             solver = null;
         }
-        solver = new Solver(parts, requirements, gridSettings);
+        const gs = gridSettings();
+        solver = new Solver(
+            parts,
+            state.requirements,
+            gs,
+            state.spinnableColors
+        );
 
-        const spinner = createSpinner(gridSettings);
+        const spinner = createSpinner(gs);
         results.appendChild(spinner);
 
         const it = solver[Symbol.asyncIterator]();
@@ -393,15 +470,15 @@ async function main() {
 
             const cells = placeAll(
                 parts,
-                requirements,
+                state.requirements,
                 solution as Solution,
-                gridSettings
+                gs
             );
 
             const wrapper = document.createElement("div");
             results.insertBefore(wrapper, spinner);
             wrapper.appendChild(
-                createGridView(parts, requirements, cells, gridSettings)
+                createGridView(parts, state.requirements, cells, gs)
             );
 
             const observer = new IntersectionObserver(([entry]) => {
@@ -420,20 +497,15 @@ async function main() {
 
                         const cells = placeAll(
                             parts,
-                            requirements,
+                            state.requirements,
                             solution as Solution,
-                            gridSettings
+                            gs
                         );
 
                         const wrapper = document.createElement("div");
                         results.insertBefore(wrapper, spinner);
                         wrapper.appendChild(
-                            createGridView(
-                                parts,
-                                requirements,
-                                cells,
-                                gridSettings
-                            )
+                            createGridView(parts, state.requirements, cells, gs)
                         );
 
                         const clientRect = spinner.getBoundingClientRect();
@@ -454,15 +526,17 @@ async function main() {
             parts: Part[];
             requirements: Requirement[];
             gridSettings: GridSettings;
+            spinnableColors: boolean[];
         };
 
         constructor(
             parts: Part[],
             requirements: Requirement[],
-            gridSettings: GridSettings
+            gridSettings: GridSettings,
+            spinnableColors: boolean[]
         ) {
             this.worker = new Worker(new URL("./worker.ts", import.meta.url));
-            this.args = { parts, requirements, gridSettings };
+            this.args = { parts, requirements, gridSettings, spinnableColors };
         }
 
         async *[Symbol.asyncIterator]() {
@@ -506,60 +580,68 @@ async function main() {
         }
     }
 
-    interface CompressedRequirements {
-        i: number;
-        c: number;
-        b: number;
-        z: number;
+    function toHashString(state: State): string {
+        return JSON.stringify({
+            r: state.requirements.map((req) => ({
+                i: req.partIndex,
+                c:
+                    req.constraint.onCommandLine === true
+                        ? 1
+                        : req.constraint.onCommandLine === false
+                        ? 0
+                        : -1,
+                b:
+                    req.constraint.bugged === true
+                        ? 1
+                        : req.constraint.bugged === false
+                        ? 0
+                        : -1,
+                z:
+                    req.constraint.compressed === true
+                        ? 1
+                        : req.constraint.compressed === false
+                        ? 0
+                        : -1,
+            })),
+            s: state.spinnableColors.map((v) => (v ? 1 : 0)),
+            d: [state.gridHeight, state.gridWidth],
+        });
     }
 
-    function compressRequirements(
-        reqs: Requirement[]
-    ): CompressedRequirements[] {
-        return reqs.map((req) => ({
-            i: req.partIndex,
-            c:
-                req.constraint.onCommandLine === true
-                    ? 1
-                    : req.constraint.onCommandLine === false
-                    ? 0
-                    : -1,
-            b:
-                req.constraint.bugged === true
-                    ? 1
-                    : req.constraint.bugged === false
-                    ? 0
-                    : -1,
-            z:
-                req.constraint.compressed === true
-                    ? 1
-                    : req.constraint.compressed === false
-                    ? 0
-                    : -1,
-        }));
-    }
-
-    function uncompressRequirements(
-        cs: CompressedRequirements[]
-    ): Requirement[] {
-        return cs.map((cr) => ({
-            partIndex: cr.i,
-            constraint: {
-                onCommandLine: cr.c === 1 ? true : cr.c === 0 ? false : null,
-                bugged: cr.b === 1 ? true : cr.b === 0 ? false : null,
-                compressed: cr.z === 1 ? true : cr.z === 0 ? false : null,
-            },
-        }));
+    function fromHashString(s: string): State {
+        const j = JSON.parse(s) as {
+            r: {
+                i: number;
+                c: number;
+                b: number;
+                z: number;
+            }[];
+            s: number[];
+            d: [number, number];
+        };
+        return {
+            requirements: j.r.map((cr) => ({
+                partIndex: cr.i,
+                constraint: {
+                    onCommandLine:
+                        cr.c === 1 ? true : cr.c === 0 ? false : null,
+                    bugged: cr.b === 1 ? true : cr.b === 0 ? false : null,
+                    compressed: cr.z === 1 ? true : cr.z === 0 ? false : null,
+                },
+            })),
+            spinnableColors: j.s.map((v) => !!v),
+            gridHeight: j.d[0],
+            gridWidth: j.d[1],
+        };
     }
 
     function loadHash() {
         const hash = decodeURIComponent(location.hash.slice(1));
-        const reqs2 =
-            hash != "" ? uncompressRequirements(JSON.parse(hash)) : [];
-        if (isEqual(requirements, reqs2)) {
+        const state2 = hash != "" ? fromHashString(hash) : emptyState();
+        if (isEqual(state, state2)) {
             return;
         }
-        requirements = reqs2;
+        state = state2;
         update();
     }
 
@@ -570,8 +652,8 @@ async function main() {
     function update() {
         requirementsEl.innerHTML = "";
 
-        for (let i = 0; i < requirements.length; ++i) {
-            const requirement = requirements[i];
+        for (let i = 0; i < state.requirements.length; ++i) {
+            const requirement = state.requirements[i];
 
             const part = parts[requirement.partIndex];
 
@@ -587,7 +669,7 @@ async function main() {
             deleteButton.className = "btn btn-danger btn-sm";
             deleteButton.innerHTML = `<i class="bi bi-x"></i>`;
             deleteButton.onclick = ((i: number) => {
-                requirements.splice(i, 1);
+                state.requirements.splice(i, 1);
                 update();
             }).bind(null, i);
             headerEl.appendChild(deleteButton);
@@ -614,7 +696,7 @@ async function main() {
                         requirement.constraint.onCommandLine,
                         false,
                         ((i: number, v: boolean | null) => {
-                            requirements[i].constraint.onCommandLine = v;
+                            state.requirements[i].constraint.onCommandLine = v;
                             updateResults();
                         }).bind(this, i)
                     )
@@ -630,7 +712,7 @@ async function main() {
                         requirement.constraint.bugged,
                         false,
                         ((i: number, v: boolean | null) => {
-                            requirements[i].constraint.bugged = v;
+                            state.requirements[i].constraint.bugged = v;
                             updateResults();
                         }).bind(this, i)
                     )
@@ -646,7 +728,7 @@ async function main() {
                         requirement.constraint.compressed,
                         isEqual(part.compressedMask, part.uncompressedMask),
                         ((i: number, v: boolean | null) => {
-                            requirements[i].constraint.compressed = v;
+                            state.requirements[i].constraint.compressed = v;
                             updateResults();
                         }).bind(this, i)
                     )
@@ -658,7 +740,7 @@ async function main() {
     }
 
     document.getElementById("reset")!.onclick = () => {
-        requirements.splice(0, requirements.length);
+        state = emptyState();
         update();
     };
 

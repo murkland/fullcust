@@ -109,9 +109,9 @@ impl Grid {
 
         if settings.has_oob {
             cells[[0, 0]] = Cell::Forbidden;
-            cells[[settings.width - 1, 0]] = Cell::Forbidden;
-            cells[[0, settings.height - 1]] = Cell::Forbidden;
-            cells[[settings.width - 1, settings.height - 1]] = Cell::Forbidden;
+            cells[[settings.height - 1, 0]] = Cell::Forbidden;
+            cells[[0, settings.width - 1]] = Cell::Forbidden;
+            cells[[settings.height - 1, settings.width - 1]] = Cell::Forbidden;
         }
 
         Self {
@@ -364,6 +364,7 @@ fn placement_locations_and_masks_for_mask<'a>(
     grid_settings: GridSettings,
     on_command_line: Option<bool>,
     bugged: Option<bool>,
+    spinnable: bool,
 ) -> Vec<(Location, Mask)> {
     let mut locations =
         placement_positions_for_mask(mask, part_is_solid, grid_settings, on_command_line, bugged)
@@ -379,37 +380,39 @@ fn placement_locations_and_masks_for_mask<'a>(
             })
             .collect::<Vec<_>>();
 
-    // Figure out what mask rotations are necessary.
-    let mut mask = std::borrow::Cow::Borrowed(mask);
+    if spinnable {
+        // Figure out what mask rotations are necessary.
+        let mut mask = std::borrow::Cow::Borrowed(mask);
 
-    let mut known_masks = std::collections::HashSet::new();
-    known_masks.insert(mask.trimmed());
+        let mut known_masks = std::collections::HashSet::new();
+        known_masks.insert(mask.trimmed());
 
-    for i in 1..4 {
-        mask = std::borrow::Cow::Owned(mask.rotate90());
-        if known_masks.contains(&mask.trimmed()) {
-            break;
-        }
+        for i in 1..4 {
+            mask = std::borrow::Cow::Owned(mask.rotate90());
+            if known_masks.contains(&mask.trimmed()) {
+                break;
+            }
 
-        locations.extend(
-            placement_positions_for_mask(
-                &mask,
-                part_is_solid,
-                grid_settings,
-                on_command_line,
-                bugged,
-            )
-            .into_iter()
-            .map(|p| {
-                (
-                    Location {
-                        position: p,
-                        rotation: i,
-                    },
-                    mask.clone().into_owned(),
+            locations.extend(
+                placement_positions_for_mask(
+                    &mask,
+                    part_is_solid,
+                    grid_settings,
+                    on_command_line,
+                    bugged,
                 )
-            }),
-        );
+                .into_iter()
+                .map(|p| {
+                    (
+                        Location {
+                            position: p,
+                            rotation: i,
+                        },
+                        mask.clone().into_owned(),
+                    )
+                }),
+            );
+        }
     }
 
     locations
@@ -419,6 +422,7 @@ fn candidates_for_part<'a>(
     part: &'a Part,
     grid_settings: GridSettings,
     constraint: &Constraint,
+    spinnable: bool,
 ) -> Vec<Candidate> {
     match constraint.compressed {
         Some(true) => placement_locations_and_masks_for_mask(
@@ -427,6 +431,7 @@ fn candidates_for_part<'a>(
             grid_settings,
             constraint.on_command_line,
             constraint.bugged,
+            spinnable,
         )
         .into_iter()
         .map(|(loc, mask)| Candidate {
@@ -444,6 +449,7 @@ fn candidates_for_part<'a>(
             grid_settings,
             constraint.on_command_line,
             constraint.bugged,
+            spinnable,
         )
         .into_iter()
         .map(|(loc, mask)| Candidate {
@@ -462,6 +468,7 @@ fn candidates_for_part<'a>(
                 grid_settings,
                 constraint.on_command_line,
                 constraint.bugged,
+                spinnable,
             )
             .into_iter()
             .map(|(loc, mask)| Candidate {
@@ -481,6 +488,7 @@ fn candidates_for_part<'a>(
                 grid_settings,
                 constraint.on_command_line,
                 constraint.bugged,
+                spinnable,
             )
             .into_iter()
             .map(|(loc, mask)| Candidate {
@@ -496,6 +504,7 @@ fn candidates_for_part<'a>(
                 grid_settings,
                 constraint.on_command_line,
                 constraint.bugged,
+                spinnable,
             )
             .into_iter()
             .map(|(loc, mask)| Candidate {
@@ -634,6 +643,7 @@ pub fn solve(
     parts: Vec<Part>,
     requirements: Vec<Requirement>,
     grid_settings: GridSettings,
+    spinnable_colors: Vec<bool>,
 ) -> impl Iterator<Item = Solution> + 'static {
     fn solve_helper(
         parts: std::rc::Rc<Vec<Part>>,
@@ -738,9 +748,18 @@ pub fn solve(
                 .iter()
                 .enumerate()
                 .map(|(i, req)| {
+                    let part = &parts[req.part_index];
                     (
                         i,
-                        candidates_for_part(&parts[req.part_index], grid_settings, &req.constraint),
+                        candidates_for_part(
+                            part,
+                            grid_settings,
+                            &req.constraint,
+                            spinnable_colors
+                                .get(part.color)
+                                .map(|v| *v)
+                                .unwrap_or(false),
+                        ),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -1406,6 +1425,7 @@ mod tests {
                     has_oob: false,
                     command_line_row: 1,
                 },
+                vec![true],
             )
             .collect::<Vec<_>>(),
             vec![

@@ -51,13 +51,15 @@ export type Solution = Placement[];
 export function* solve(
     parts: Part[],
     requirements: Requirement[],
-    gridSettings: GridSettings
+    gridSettings: GridSettings,
+    spinnableColors: boolean
 ): Iterable<Solution> {
     const it = bindings.solve(
         bindings.SolveArgs.fromJs({
             parts,
             requirements,
             gridSettings,
+            spinnableColors,
         })
     );
     try {

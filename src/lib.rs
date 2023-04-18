@@ -15,6 +15,7 @@ pub struct SolveArgs {
     parts: Vec<solver::Part>,
     requirements: Vec<solver::Requirement>,
     grid_settings: solver::GridSettings,
+    spinnable_colors: Vec<bool>,
 }
 
 #[wasm_bindgen]
@@ -52,6 +53,7 @@ pub fn solve(args: SolveArgs) -> SolutionIterator {
         args.parts,
         args.requirements,
         args.grid_settings,
+        args.spinnable_colors,
     )))
 }
 
