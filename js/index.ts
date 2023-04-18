@@ -80,8 +80,7 @@ async function main() {
     interface State {
         requirements: Requirement[];
         spinnableColors: boolean[];
-        gridHeight: number;
-        gridWidth: number;
+        expansions: number;
     }
     let state: State;
 
@@ -89,16 +88,15 @@ async function main() {
         return {
             requirements: [],
             spinnableColors: data.colors.map((_: string) => true),
-            gridHeight: data.gridSettings.height,
-            gridWidth: data.gridSettings.width,
+            expansions: 2,
         };
     }
 
     function gridSettings(): GridSettings {
         return {
             ...data.gridSettings,
-            height: state.gridHeight,
-            width: state.gridWidth,
+            height: data.gridSettings.height - (state.expansions < 2 ? 1 : 0),
+            width: data.gridSettings.width - (state.expansions < 1 ? 1 : 0),
         };
     }
 
@@ -604,7 +602,7 @@ async function main() {
                         : -1,
             })),
             s: state.spinnableColors.map((v) => (v ? 1 : 0)),
-            d: [state.gridHeight, state.gridWidth],
+            x: state.expansions,
         });
     }
 
@@ -617,7 +615,7 @@ async function main() {
                 z: number;
             }[];
             s: number[];
-            d: [number, number];
+            x: number;
         };
         return {
             requirements: j.r.map((cr) => ({
@@ -630,8 +628,7 @@ async function main() {
                 },
             })),
             spinnableColors: j.s.map((v) => !!v),
-            gridHeight: j.d[0],
-            gridWidth: j.d[1],
+            expansions: j.x,
         };
     }
 
