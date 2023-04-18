@@ -312,7 +312,10 @@ fn placement_is_admissible<'a>(
         .iter()
         .any(|c| matches!(c, Cell::Placed(req_idx) if requirement_index == *req_idx));
 
-    if on_command_line == Some(true) && !placed_on_command_line {
+    if on_command_line
+        .map(|on_command_line| on_command_line != placed_on_command_line)
+        .unwrap_or(false)
+    {
         return false;
     }
 
