@@ -218,7 +218,7 @@ fn requirements_are_admissible<'a>(
         .iter()
         .filter(|req| req.constraint.on_command_line == Some(true))
         .count()
-        > grid_settings.width - if grid_settings.has_oob { 2 } else { 0 }
+        > grid_settings.width
     {
         return false;
     }
