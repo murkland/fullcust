@@ -235,7 +235,7 @@ fn requirements_are_admissible<'a>(
             }
         })
         .sum::<usize>()
-        >= grid_settings.width * grid_settings.height - if grid_settings.has_oob { 4 } else { 0 }
+        > grid_settings.width * grid_settings.height - if grid_settings.has_oob { 4 } else { 0 }
     {
         return false;
     }
