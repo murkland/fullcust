@@ -319,7 +319,7 @@ fn placement_is_admissible<'a>(
         return false;
     }
 
-    let placement_is_bugged = out_of_bounds || (part_is_solid && !placed_on_command_line);
+    let placement_is_bugged = out_of_bounds || (part_is_solid == !placed_on_command_line);
 
     // It is not possible to know if a piece is definitively not bugged, as it must pass the coloring check later also.
     if bugged == Some(false) && placement_is_bugged {
@@ -592,7 +592,7 @@ fn solution_is_admissible<'a>(
     for (req, placement_detail) in requirements.iter().zip(placement_details) {
         let part = &parts[req.part_index];
         let placement_is_bugged = placement_detail.out_of_bounds
-            || (part.is_solid && !placement_detail.on_command_line)
+            || (part.is_solid == !placement_detail.on_command_line)
             || placement_detail.touching_same_color;
 
         if req
