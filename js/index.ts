@@ -679,8 +679,8 @@ async function main() {
             nameEl.innerText = `${i + 1}. ${part.name}・${part.nameJa}`;
 
             const deleteButton = document.createElement("button");
-            deleteButton.className = "btn btn-danger btn-sm align-self-end";
-            deleteButton.innerHTML = `<i class="bi bi-x"></i>`;
+            deleteButton.type = "button";
+            deleteButton.className = "btn btn-close btn-sm align-self-end";
             deleteButton.onclick = ((i: number) => {
                 state.requirements.splice(i, 1);
                 update();
