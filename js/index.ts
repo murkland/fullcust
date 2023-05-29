@@ -671,23 +671,21 @@ async function main() {
 
             const headerEl = document.createElement("div");
             li.appendChild(headerEl);
-            headerEl.className = "mb-2";
+            headerEl.className = "mb-2 d-flex align-items-center";
+
+            const nameEl = document.createElement("div");
+            headerEl.appendChild(nameEl);
+            nameEl.className = "flex-grow-1";
+            nameEl.innerText = `${i + 1}. ${part.name}・${part.nameJa}`;
 
             const deleteButton = document.createElement("button");
-            deleteButton.className = "btn btn-danger btn-sm";
+            deleteButton.className = "btn btn-danger btn-sm align-self-end";
             deleteButton.innerHTML = `<i class="bi bi-x"></i>`;
             deleteButton.onclick = ((i: number) => {
                 state.requirements.splice(i, 1);
                 update();
             }).bind(null, i);
             headerEl.appendChild(deleteButton);
-
-            headerEl.appendChild(document.createTextNode(" "));
-            headerEl.appendChild(
-                document.createTextNode(
-                    `${i + 1}. ${part.name}・${part.nameJa}`
-                )
-            );
 
             const constraintsEl = document.createElement("div");
             li.appendChild(constraintsEl);
