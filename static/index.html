@@ -14,13 +14,6 @@
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.4/font/bootstrap-icons.css"
         />
         <style>
-            #results {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-                text-align: center;
-                gap: 1rem;
-            }
-
             #extra-settings-header .accordion-button::after {
                 transform: var(--bs-accordion-btn-icon-transform);
             }
@@ -31,108 +24,7 @@
         </style>
     </head>
     <body>
-        <div
-            class="h-100 position-fixed d-flex flex-column p-2 border-end"
-            style="width: 40%; top: 0"
-        >
-            <h1 class="h4">
-                fullcust
-                <small class="text-muted"
-                    >navicust autolayout・ナビカスタマイザー自動配置</small
-                >
-            </h1>
-            <ul id="games-nav" class="nav nav-pills mb-2">
-                <li class="nav-item">
-                    <a class="nav-link" href="?game=bn6">bn6・exe6</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="?game=bn5">bn5・exe5</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="?game=bn4">bn4・exe4</a>
-                </li>
-            </ul>
-            <div class="form mb-2">
-                <div class="col">
-                    <select class="form-select" id="part-select" disabled>
-                        <option value="" disabled selected>
-                            Pick a part・パートを選択
-                        </option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="overflow-auto flex-grow-1 mb-2">
-                <ol class="list-group" id="requirements"></ol>
-            </div>
-
-            <div class="accordion mb-2" id="extra-settings">
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="extra-settings-header">
-                        <button
-                            class="accordion-button collapsed"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#extra-settings-body"
-                            aria-expanded="false"
-                            aria-controls="extra-settings-body"
-                        >
-                            Extra settings・追加設定
-                        </button>
-                    </h2>
-                    <div
-                        id="extra-settings-body"
-                        class="accordion-collapse collapse"
-                        aria-labelledby="extra-settings-header"
-                        data-bs-parent="#extra-settings"
-                    >
-                        <div class="accordion-body">
-                            <div class="row mb-2">
-                                <label
-                                    for="expansion-memories"
-                                    class="col-sm-4 col-form-label"
-                                    >Expansion memory・拡張メモリ</label
-                                >
-                                <div class="col-sm-8">
-                                    <select
-                                        class="form-select form-select-small"
-                                        id="expansion-memories"
-                                    >
-                                        <option value="0">4×4</option>
-                                        <option value="1">5×4</option>
-                                        <option value="2" selected>5×5</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div id="spinnable" class="mb-2"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col d-flex justify-content-end">
-                    <button type="reset" id="reset" class="btn btn-danger">
-                        <span>Reset・リセット</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid my-2" style="margin-left: 40%; width: 60%">
-            <div id="results"></div>
-            <div
-                id="no-results"
-                style="display: none"
-                class="alert alert-danger"
-            >
-                No solutions found・解決が発見されなかった
-            </div>
-            <div id="no-requirements" class="alert alert-info">
-                Select parts from the left to start
-                solving・解決を開始するために、左面からパートを選択ください
-            </div>
-        </div>
+        <main id="main"></main>
         <script
             src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
