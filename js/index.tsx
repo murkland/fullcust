@@ -828,19 +828,20 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
         >
             {solutions.length > 0 ? (
                 solutions.map((solution, i) => (
-                    <Navicust
-                        key={i}
-                        parts={data.parts}
-                        colors={data.colors}
-                        requirements={problem.requirements}
-                        gridSettings={gs}
-                        cells={placeAll(
-                            data.parts,
-                            problem.requirements,
-                            solution as Solution,
-                            gs
-                        )}
-                    />
+                    <div style={{ textAlign: "center" }} key={i}>
+                        <Navicust
+                            parts={data.parts}
+                            colors={data.colors}
+                            requirements={problem.requirements}
+                            gridSettings={gs}
+                            cells={placeAll(
+                                data.parts,
+                                problem.requirements,
+                                solution as Solution,
+                                gs
+                            )}
+                        />
+                    </div>
                 ))
             ) : done ? (
                 problem.requirements.length > 0 ? (
