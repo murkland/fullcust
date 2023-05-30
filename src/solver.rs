@@ -387,7 +387,7 @@ fn placement_locations_and_masks_for_mask<'a>(
         // Figure out what mask rotations are necessary.
         let mut mask = std::borrow::Cow::Borrowed(mask);
 
-        let mut known_masks = std::collections::HashSet::new();
+        let mut known_masks = std::collections::HashSet::with_capacity(4);
         known_masks.insert(mask.trimmed());
 
         for i in 1..4 {
