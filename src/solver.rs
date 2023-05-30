@@ -616,8 +616,8 @@ pub fn place_all(
 ) -> Option<Vec<Option<usize>>> {
     let mut grid = Grid::new(grid_settings);
     for (req_idx, placement) in placements.iter().enumerate() {
-        let req = &requirements[req_idx];
-        let part = &parts[req.part_index];
+        let req = requirements[req_idx];
+        let part = parts[req.part_index];
         let mask = &if placement.compressed {
             &part.compressed_mask
         } else {
