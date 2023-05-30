@@ -904,36 +904,22 @@ function App() {
                     </small>
                 </h1>
                 <ul id="games-nav" className="nav nav-pills mb-2">
-                    <li className="nav-item">
-                        <a
-                            className={`nav-link ${
-                                game == "bn6" ? "active" : ""
-                            }`}
-                            href="?game=bn6"
-                        >
-                            bn6・exe6
-                        </a>
-                    </li>
-                    <li className="nav-item">
-                        <a
-                            className={`nav-link ${
-                                game == "bn5" ? "active" : ""
-                            }`}
-                            href="?game=bn5"
-                        >
-                            bn5・exe5
-                        </a>
-                    </li>
-                    <li className="nav-item">
-                        <a
-                            className={`nav-link ${
-                                game == "bn4" ? "active" : ""
-                            }`}
-                            href="?game=bn4"
-                        >
-                            bn4・exe4
-                        </a>
-                    </li>
+                    {[
+                        ["bn6", "bn6・exe6"],
+                        ["bn5", "bn5・exe5"],
+                        ["bn4", "bn4・exe4"],
+                    ].map(([key, label]) => (
+                        <li className="nav-item" key={key}>
+                            <a
+                                className={`nav-link ${
+                                    game == key ? "active" : ""
+                                }`}
+                                href={`?game=${key}`}
+                            >
+                                {label}
+                            </a>
+                        </li>
+                    ))}
                 </ul>
                 {data != null && problem != null ? (
                     <PartSelector
