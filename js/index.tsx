@@ -148,7 +148,7 @@ interface Problem {
     expansionMemories: number;
 }
 
-function emptyState(data: Data): Problem {
+function emptyProblem(data: Data): Problem {
     return {
         requirements: [],
         spinnableColors: data.colors.map((_: string) => true),
@@ -513,7 +513,7 @@ function PartSelector({
                         id="reset"
                         className="btn btn-danger"
                         onClick={() => {
-                            onChange(emptyState(data));
+                            onChange(emptyProblem(data));
                         }}
                     >
                         <span>Reset・リセット</span>
@@ -862,7 +862,7 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
 
 function App() {
     const [data, setData] = React.useState<Data | null>(null);
-    const [problem, setState] = React.useState<Problem | null>(
+    const [problem, setProblem] = React.useState<Problem | null>(
         fromHashString(decodeURIComponent(window.location.hash.slice(1)))
     );
 
@@ -879,9 +879,9 @@ function App() {
                     raw.gridSettings.width
                 ),
             };
-            setState((problem) => {
+            setProblem((problem) => {
                 if (problem == null) {
-                    problem = emptyState(data);
+                    problem = emptyProblem(data);
                     window.location.hash = toHashString(problem);
                     return problem;
                 }
@@ -889,7 +889,7 @@ function App() {
             });
             setData(data);
         })();
-    }, [setState, setData]);
+    }, [setProblem, setData]);
 
     return (
         <div>
@@ -941,7 +941,7 @@ function App() {
                         problem={problem}
                         onChange={(problem) => {
                             window.location.hash = toHashString(problem);
-                            setState(problem);
+                            setProblem(problem);
                         }}
                     />
                 ) : null}
