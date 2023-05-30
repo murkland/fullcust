@@ -247,7 +247,7 @@ function PartSelector({
                         </option>
                         {data != null
                             ? data.partMetas.map((part, i) => (
-                                  <option value={i}>
+                                  <option value={i} key={i}>
                                       {part.name}・{part.nameJa}
                                   </option>
                               ))
@@ -262,7 +262,7 @@ function PartSelector({
                         const partMeta = data!.partMetas[requirement.partIndex];
 
                         return (
-                            <li className="list-group-item">
+                            <li className="list-group-item" key={i}>
                                 <div className="mb-2 d-flex align-items-center">
                                     <div className="flex-grow-1">
                                         {i + 1}. {partMeta.name}・
