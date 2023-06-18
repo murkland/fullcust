@@ -620,15 +620,15 @@ function placementLocationsAndMasksForMask(
         knownMasks.add(to8BitString(arrayBooleanToNumber(trim(mask))));
 
         for (let i = 1; i < 4; ++i) {
-            const mask2 = array2d.rot90(mask);
-            const knownMask2 = to8BitString(arrayBooleanToNumber(trim(mask2)));
-            if (knownMasks.has(knownMask2)) {
+            mask = array2d.rot90(mask);
+            const knownMask = to8BitString(arrayBooleanToNumber(trim(mask)));
+            if (knownMasks.has(knownMask)) {
                 continue;
             }
-            knownMasks.add(knownMask2);
+            knownMasks.add(knownMask);
 
             for (const position of placementPositionsForMask(
-                mask2,
+                mask,
                 isSolid,
                 gridSettings,
                 onCommandLine,
@@ -636,7 +636,7 @@ function placementLocationsAndMasksForMask(
             )) {
                 locations.push({
                     loc: { position, rotation: i },
-                    mask: mask2,
+                    mask,
                 });
             }
         }
