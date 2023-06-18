@@ -17,11 +17,6 @@ jobs:
             - name: Checkout repo
               uses: actions/checkout@v3
 
-            - name: Setup wasm-pack
-              uses: jetli/wasm-pack-action@v0.4.0
-              with:
-                  version: "latest"
-
             - name: Setup Node
               uses: actions/setup-node@v3
 

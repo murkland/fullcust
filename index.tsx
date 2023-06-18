@@ -235,7 +235,7 @@ function PartSelector({
                             });
                         }}
                     >
-                        <option value="" disabled selected>
+                        <option value="" disabled>
                             Pick a part・パートを選択
                         </option>
                         {data != null
@@ -863,7 +863,7 @@ function App() {
 
     React.useEffect(() => {
         (async () => {
-            const raw = await import(`./${game}.json`);
+            const raw = await import(`./data/${game}.json`);
             const data = {
                 colors: raw.colors,
                 gridSettings: raw.gridSettings,

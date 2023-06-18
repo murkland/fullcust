@@ -10,7 +10,9 @@ export default class AsyncSolver {
         gridSettings: GridSettings,
         spinnableColors: boolean[]
     ) {
-        const worker = new Worker(new URL("./worker.ts", import.meta.url));
+        const worker = new Worker(new URL("./worker.ts", import.meta.url), {
+            type: "module",
+        });
         this.worker = worker;
         const args = { parts, requirements, gridSettings, spinnableColors };
 

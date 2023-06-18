@@ -5,7 +5,7 @@ import type {
     Position,
     Requirement,
     Solution,
-} from "../../solver";
+} from "../solver";
 import * as array2d from "./array2d";
 
 const Cell = {
@@ -545,7 +545,7 @@ function candidatesForPart(
     constraint: Constraint,
     spinnable: boolean
 ): Candidate[] {
-    const candidates = [];
+    const candidates: Candidate[] = [];
     if (
         constraint.compressed === true ||
         array2d.equal(part.compressedMask, part.uncompressedMask)
@@ -652,7 +652,7 @@ function placementPositionsForMask(
     onCommandLine: boolean | null,
     bugged: boolean | null
 ) {
-    const positions = [];
+    const positions: Position[] = [];
 
     for (let y = -mask.nrows + 1; y < mask.nrows; ++y) {
         for (let x = -mask.ncols + 1; x < mask.ncols; ++x) {

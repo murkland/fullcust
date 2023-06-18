@@ -4,7 +4,7 @@ import type {
     Requirement,
     Solution,
     Placement,
-} from "../../solver";
+} from "../solver";
 import * as array2d from "./array2d";
 import * as internal from "./internal";
 

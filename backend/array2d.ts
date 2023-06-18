@@ -82,11 +82,13 @@ export function equal<T>(l: Array2D<T>, r: Array2D<T>) {
     );
 }
 
-export function pretty<T>(arr2d: Array2D<T>): string {
-    const buf = [];
+export function pretty<T extends { toString(): string }>(
+    arr2d: Array2D<T>
+): string {
+    const buf: string[] = [];
     for (let i = 0; i < arr2d.nrows; ++i) {
         for (let j = 0; j < arr2d.ncols; ++j) {
-            buf.push(arr2d[i * arr2d.ncols + j]);
+            buf.push(arr2d[i * arr2d.ncols + j].toString());
             buf.push("\t");
         }
         buf.push("\n");

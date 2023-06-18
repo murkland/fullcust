@@ -1,4 +1,4 @@
-import * as backend from "./backends/wasm";
+import * as backend from "./backend";
 
 export interface Mask {
     cells: boolean[];
