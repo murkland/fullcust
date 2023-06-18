@@ -257,10 +257,10 @@ export function* solve(
 
     const visited = new Set();
 
-    for (const solution of (function* helper(
+    for (const raw of (function* helper(
         grid: Grid,
         candidateIdx: number
-    ): Iterable<[number, Placement][]> {
+    ): Iterable<{ reqIdx: number; placement: Placement }[]> {
         if (candidateIdx === candidates.length) {
             yield [];
             return;
@@ -303,7 +303,7 @@ export function* solve(
             visited.add(gridByParts);
 
             for (const solution of helper(grid2, candidateIdx + 1)) {
-                solution.push([reqIdx, candidate.placement]);
+                solution.push({ reqIdx, placement: candidate.placement });
                 if (
                     candidateIdx === candidates.length - 1 &&
                     !solutionIsAdmissible(parts, requirements, grid2)
@@ -314,8 +314,12 @@ export function* solve(
             }
         }
     })(new Grid(gridSettings), 0)) {
-        solution.sort(([i, _1], [j, _2]) => i - j);
-        yield solution.map(([_, p]) => p);
+        raw.sort(({ reqIdx: i }, { reqIdx: j }) => i - j);
+        const solution = new Array(raw.length);
+        for (let i = 0; i < raw.length; ++i) {
+            solution[i] = raw[i].placement;
+        }
+        yield solution;
     }
 }
 
@@ -367,13 +371,14 @@ function solutionIsAdmissible(
         touchingSameColor: boolean;
     }
 
-    const placementDetails: PlacementDetail[] = new Array(requirements.length)
-        .fill(null)
-        .map((_) => ({
+    const placementDetails: PlacementDetail[] = new Array(requirements.length);
+    for (let i = 0; i < requirements.length; ++i) {
+        placementDetails[i] = {
             outOfBounds: false,
             onCommandLine: false,
             touchingSameColor: false,
-        }));
+        };
+    }
 
     for (let y = 0; y < grid.cells.nrows; ++y) {
         for (let x = 0; x < grid.cells.ncols; ++x) {
