@@ -409,10 +409,9 @@ function requirementsAreAdmissible(
                 : part.compressedMask
         );
     }
-    let availableSquares = gridSettings.width * gridSettings.height;
-    if (gridSettings.hasOob) {
-        availableSquares -= 4;
-    }
+    const availableSquares =
+        gridSettings.width * gridSettings.height -
+        (gridSettings.hasOob ? 4 : 0);
     if (occupiedSquares > availableSquares) {
         return false;
     }
