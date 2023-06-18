@@ -698,7 +698,7 @@ export function placeAll(
         const part = parts[req.partIndex];
         let mask = placement.compressed
             ? part.compressedMask
-            : part.compressedMask;
+            : part.uncompressedMask;
         for (let j = 0; j < placement.loc.rotation; ++j) {
             mask = array2d.rot90(mask);
         }
