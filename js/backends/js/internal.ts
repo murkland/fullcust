@@ -145,29 +145,29 @@ class Grid {
     }
 
     place(mask: array2d.Array2D<boolean>, pos: Position, reqIdx: number) {
-        let srcY = 0;
-        let dstY = 0;
+        let srcTop = 0;
+        let dstTop = 0;
         if (pos.y < 0) {
-            srcY = -pos.y;
+            srcTop = -pos.y;
         } else {
-            dstY = pos.y;
+            dstTop = pos.y;
         }
 
-        let srcX = 0;
-        let dstX = 0;
+        let srcLeft = 0;
+        let dstLeft = 0;
         if (pos.x < 0) {
-            srcX = -pos.x;
+            srcLeft = -pos.x;
         } else {
-            dstX = pos.x;
+            dstLeft = pos.x;
         }
 
         for (let y = 0; y < mask.nrows; ++y) {
             for (let x = 0; x < mask.ncols; ++x) {
                 if (
-                    x >= srcX &&
-                    y >= srcY &&
-                    x < mask.ncols - dstX &&
-                    y < mask.nrows - dstY
+                    x >= srcLeft &&
+                    y >= srcTop &&
+                    x < mask.ncols - dstLeft &&
+                    y < mask.nrows - dstTop
                 ) {
                     continue;
                 }
@@ -179,10 +179,28 @@ class Grid {
         }
 
         // Actually do the placement...
-        const copyNrows = Math.min(mask.nrows - srcY, this.cells.nrows - dstY);
-        const copyNcols = Math.min(mask.ncols - srcX, this.cells.ncols - dstX);
+        for (let y = 0; y < mask.nrows - srcTop; ++y) {
+            for (let x = 0; x < mask.ncols - srcLeft; ++x) {
+                const srcX = x + srcLeft;
+                const srcY = y + srcTop;
+                const dstX = x + dstLeft;
+                const dstY = y + dstTop;
 
-        // TODO
+                if (!mask[srcY * mask.ncols + srcX]) {
+                    continue;
+                }
+
+                if (dstX >= this.cells.ncols || dstY >= this.cells.nrows) {
+                    return false;
+                }
+
+                const gridCellsIdx = dstY * this.cells.ncols + dstX;
+                if (this.cells[gridCellsIdx] != Cell.EMPTY) {
+                    return false;
+                }
+                this.cells[gridCellsIdx] = reqIdx;
+            }
+        }
 
         return true;
     }

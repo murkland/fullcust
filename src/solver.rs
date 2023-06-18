@@ -159,12 +159,15 @@ impl Grid {
                 .rows_mut(),
         ) {
             for (src, dst) in std::iter::zip(src_row, dst_row) {
-                if *src {
-                    if !matches!(dst, Cell::Empty) {
-                        return None;
-                    }
-                    *dst = Cell::Placed(requirement_index);
+                if !*src {
+                    continue;
                 }
+
+                if !matches!(dst, Cell::Empty) {
+                    return None;
+                }
+
+                *dst = Cell::Placed(requirement_index);
             }
         }
 
