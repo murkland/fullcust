@@ -383,10 +383,11 @@ fn placement_locations_and_masks_for_mask<'a>(
 
         for i in 1..4 {
             mask = std::borrow::Cow::Owned(mask.rotate90());
-            if known_masks.contains(&mask.trimmed()) {
+            let trimmed_mask = mask.trimmed();
+            if known_masks.contains(&trimmed_mask) {
                 break;
             }
-            known_masks.insert(mask.trimmed());
+            known_masks.insert(trimmed_mask);
 
             locations.extend(
                 placement_positions_for_mask(
