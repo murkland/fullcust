@@ -40,7 +40,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): (number | undefined)[] {
+): (number | undefined)[] | null {
     return bindings.placeAll(
         bindings.PlaceAllArgs.fromJs({
             parts,

@@ -621,6 +621,7 @@ function placementLocationsAndMasksForMask(
 
     return locations;
 }
+
 function placementPositionsForMask(
     mask: array2d.Array2D<boolean>,
     isSolid: boolean,
@@ -649,4 +650,34 @@ function placementPositionsForMask(
     }
 
     return positions;
+}
+
+export function placeAll(
+    parts: Part[],
+    requirements: Requirement[],
+    placements: Placement[],
+    gridSettings: GridSettings
+): (number | undefined)[] | null {
+    const grid = new Grid(gridSettings);
+    const cells = new Array(grid.cells.length);
+
+    for (let i = 0; i < placements.length; ++i) {
+        const req = requirements[i];
+        const placement = placements[i];
+        const part = parts[req.partIndex];
+        let mask = placement.compressed
+            ? part.compressedMask
+            : part.compressedMask;
+        for (let j = 0; j < placement.loc.rotation; ++j) {
+            mask = array2d.rot90(mask);
+        }
+        if (!grid.place(mask, placement.loc.position, i)) {
+            return null;
+        }
+    }
+
+    for (let i = 0; i < grid.cells.length; ++i) {
+        cells[i] = grid.cells[i] < 0 ? undefined : grid.cells[i];
+    }
+    return cells;
 }
