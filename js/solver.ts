@@ -1,4 +1,4 @@
-import * as bindings from "../pkg";
+import * as backend from "./backends/wasm";
 
 export interface Mask {
     cells: boolean[];
@@ -48,31 +48,13 @@ export interface Placement {
 
 export type Solution = Placement[];
 
-export function* solve(
+export function solve(
     parts: Part[],
     requirements: Requirement[],
     gridSettings: GridSettings,
-    spinnableColors: boolean
+    spinnableColors: boolean[]
 ): Iterable<Solution> {
-    const it = bindings.solve(
-        bindings.SolveArgs.fromJs({
-            parts,
-            requirements,
-            gridSettings,
-            spinnableColors,
-        })
-    );
-    try {
-        for (;;) {
-            const solution = it.next();
-            if (solution == null) {
-                break;
-            }
-            yield solution.toJs();
-        }
-    } finally {
-        it.free();
-    }
+    return backend.solve(parts, requirements, gridSettings, spinnableColors);
 }
 
 export function placeAll(
@@ -81,14 +63,7 @@ export function placeAll(
     placements: Placement[],
     gridSettings: GridSettings
 ): (number | undefined)[] {
-    return bindings.placeAll(
-        bindings.PlaceAllArgs.fromJs({
-            parts,
-            requirements,
-            placements,
-            gridSettings,
-        })
-    );
+    return backend.placeAll(parts, requirements, placements, gridSettings);
 }
 
 export function convertParts(
