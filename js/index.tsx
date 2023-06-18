@@ -4,14 +4,7 @@ import { createRoot } from "react-dom/client";
 import { useInView } from "react-intersection-observer";
 
 import AsyncSolver from "./async-solver";
-import {
-    convertParts,
-    GridSettings,
-    Part,
-    placeAll,
-    Requirement,
-    Solution,
-} from "./solver";
+import { convertParts, GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
 
 const queryParams = new URLSearchParams(location.search);
 const game = queryParams.get("game") || "bn6";
@@ -770,7 +763,7 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
     const [pending, setPending] = React.useState(false);
     const [done, setDone] = React.useState(false);
     const [solutions, setSolutions] = React.useState<Solution[]>([]);
-    const solverRef = React.useRef<AsyncSolver>(null);
+    const solverRef = React.useRef<AsyncSolver | null>(null);
     if (solverRef.current == null) {
         solverRef.current = new AsyncSolver(
             data.parts,

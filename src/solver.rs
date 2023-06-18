@@ -121,16 +121,6 @@ impl Grid {
         }
     }
 
-    fn settings(&self) -> GridSettings {
-        let (h, w) = self.cells.dim();
-        GridSettings {
-            width: w,
-            height: h,
-            has_oob: self.has_oob,
-            command_line_row: self.command_line_row,
-        }
-    }
-
     fn place(mut self, mask: &Mask, pos: Position, requirement_index: usize) -> Option<Grid> {
         let (h, w) = self.cells.dim();
 
@@ -272,10 +262,9 @@ fn placement_is_admissible<'a>(
     bugged: Option<bool>,
 ) -> bool {
     let (h, w) = grid.cells.dim();
-    let grid_settings = grid.settings();
 
     // Mandatory admissibility: ensure not everything is out of bounds.
-    if grid_settings.has_oob
+    if grid.has_oob
         && grid
             .cells
             .slice(ndarray::s![1..h - 1, 1..w - 1])
@@ -287,7 +276,7 @@ fn placement_is_admissible<'a>(
 
     // Optional admissibility: check if the block is appropriately in/out of bounds.
     let out_of_bounds =
-        if grid_settings.has_oob {
+        if grid.has_oob {
             grid.cells
                 .row(0)
                 .iter()
@@ -369,8 +358,10 @@ fn placement_locations_and_masks_for_mask<'a>(
     bugged: Option<bool>,
     spinnable: bool,
 ) -> Vec<(Location, Mask)> {
+    let mask = mask.clone();
+
     let mut locations =
-        placement_positions_for_mask(mask, part_is_solid, grid_settings, on_command_line, bugged)
+        placement_positions_for_mask(&mask, part_is_solid, grid_settings, on_command_line, bugged)
             .into_iter()
             .map(|p| {
                 (
@@ -385,16 +376,17 @@ fn placement_locations_and_masks_for_mask<'a>(
 
     if spinnable {
         // Figure out what mask rotations are necessary.
-        let mut mask = std::borrow::Cow::Borrowed(mask);
+        let mut mask = std::borrow::Cow::Borrowed(&mask);
 
         let mut known_masks = std::collections::HashSet::with_capacity(4);
-        known_masks.insert(mask.trimmed());
+        known_masks.insert(Mask::clone(&mask.trimmed()));
 
         for i in 1..4 {
             mask = std::borrow::Cow::Owned(mask.rotate90());
             if known_masks.contains(&mask.trimmed()) {
                 break;
             }
+            known_masks.insert(mask.trimmed());
 
             locations.extend(
                 placement_positions_for_mask(
