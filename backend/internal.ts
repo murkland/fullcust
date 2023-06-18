@@ -232,6 +232,14 @@ function to8BitString(arr: number[]) {
     return String.fromCharCode(...arr.map((x) => x & 0xff));
 }
 
+function encodeMaskAs8BitString(mask: array2d.Array2D<boolean>): string {
+    return to8BitString([
+        mask.nrows,
+        mask.ncols,
+        ...arrayBooleanToNumber(mask),
+    ]);
+}
+
 export function* solve(
     parts: Part[],
     requirements: Requirement[],
@@ -617,13 +625,13 @@ function placementLocationsAndMasksForMask(
 
     if (spinnable) {
         const knownMasks = new Set();
-        knownMasks.add(to8BitString(arrayBooleanToNumber(trim(mask))));
+        knownMasks.add(encodeMaskAs8BitString(trim(mask)));
 
         for (let i = 1; i < 4; ++i) {
             mask = array2d.rot90(mask);
-            const knownMask = to8BitString(arrayBooleanToNumber(trim(mask)));
+            const knownMask = encodeMaskAs8BitString(trim(mask));
             if (knownMasks.has(knownMask)) {
-                continue;
+                break;
             }
             knownMasks.add(knownMask);
 
