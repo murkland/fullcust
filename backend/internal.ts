@@ -124,15 +124,6 @@ class Grid {
         }
     }
 
-    getSettings(): GridSettings {
-        return {
-            width: this.cells.ncols,
-            height: this.cells.nrows,
-            hasOob: this.hasOob,
-            commandLineRow: this.commandLineRow,
-        };
-    }
-
     clone(): Grid {
         const grid = new Grid({
             hasOob: this.hasOob,
@@ -369,11 +360,11 @@ function requirementsAreAdmissible(
     let occupiedSquares = 0;
     for (const req of requirements) {
         const part = parts[req.partIndex];
-        if (req.constraint.compressed === false) {
-            occupiedSquares += arrayCountTrue(part.uncompressedMask);
-        } else {
-            occupiedSquares += arrayCountTrue(part.compressedMask);
-        }
+        occupiedSquares += arrayCountTrue(
+            req.constraint.compressed === false
+                ? part.uncompressedMask
+                : part.compressedMask
+        );
     }
     let availableSquares = gridSettings.width * gridSettings.height;
     if (gridSettings.hasOob) {
