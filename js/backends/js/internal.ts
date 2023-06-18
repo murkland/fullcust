@@ -65,21 +65,21 @@ function arrayBooleanToNumber(arr: boolean[]): number[] {
 function trim(arr2d: array2d.Array2D<boolean>): array2d.Array2D<boolean> {
     let left = 0;
     for (; left < arr2d.ncols; ++left) {
-        if (!arrayAny(array2d.col(arr2d, left))) {
+        if (arrayAny(array2d.col(arr2d, left))) {
             break;
         }
     }
 
     let top = 0;
     for (; top < arr2d.nrows; ++top) {
-        if (!arrayAny(array2d.row(arr2d, top))) {
+        if (arrayAny(array2d.row(arr2d, top))) {
             break;
         }
     }
 
     let right = arr2d.ncols - 1;
     for (; right >= 0; --right) {
-        if (!arrayAny(array2d.col(arr2d, right))) {
+        if (arrayAny(array2d.col(arr2d, right))) {
             break;
         }
     }
@@ -87,7 +87,7 @@ function trim(arr2d: array2d.Array2D<boolean>): array2d.Array2D<boolean> {
 
     let bottom = arr2d.nrows - 1;
     for (; bottom >= 0; --bottom) {
-        if (!arrayAny(array2d.row(arr2d, bottom))) {
+        if (arrayAny(array2d.row(arr2d, bottom))) {
             break;
         }
     }
@@ -654,8 +654,8 @@ function placementPositionsForMask(
 ) {
     const positions = [];
 
-    for (let y = 0; y < mask.nrows; ++y) {
-        for (let x = 0; x < mask.ncols; ++x) {
+    for (let y = -mask.nrows + 1; y < mask.nrows; ++y) {
+        for (let x = -mask.ncols + 1; x < mask.ncols; ++x) {
             const pos = { x, y };
             const grid = new Grid(gridSettings);
             if (!grid.place(mask, pos, 0)) {
