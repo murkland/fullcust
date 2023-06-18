@@ -62,7 +62,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): (number | undefined)[] | null {
+): (number | undefined)[] {
     return backend.placeAll(parts, requirements, placements, gridSettings);
 }
 

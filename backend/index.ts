@@ -39,7 +39,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): (number | undefined)[] | null {
+): (number | undefined)[] {
     return internal.placeAll(
         parts.map((part) => ({
             ...part,

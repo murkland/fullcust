@@ -135,7 +135,7 @@ class Grid {
         return grid;
     }
 
-    place(mask: array2d.Array2D<boolean>, pos: Position, reqIdx: number) {
+    canPlace(mask: array2d.Array2D<boolean>, pos: Position) {
         let srcTop = 0;
         let dstTop = 0;
         if (pos.y < 0) {
@@ -152,6 +152,7 @@ class Grid {
             dstLeft = pos.x;
         }
 
+        // Check if the source mask isn't getting clipped.
         for (let y = 0; y < mask.nrows; ++y) {
             for (let x = 0; x < mask.ncols; ++x) {
                 if (
@@ -169,7 +170,6 @@ class Grid {
             }
         }
 
-        // Actually do the placement...
         for (let y = 0; y < mask.nrows - srcTop; ++y) {
             for (let x = 0; x < mask.ncols - srcLeft; ++x) {
                 const srcX = x + srcLeft;
@@ -189,11 +189,52 @@ class Grid {
                 if (this.cells[gridCellsIdx] != Cell.EMPTY) {
                     return false;
                 }
-                this.cells[gridCellsIdx] = reqIdx;
             }
         }
 
         return true;
+    }
+
+    placeNoCheck(
+        mask: array2d.Array2D<boolean>,
+        pos: Position,
+        reqIdx: number
+    ) {
+        let srcTop = 0;
+        let dstTop = 0;
+        if (pos.y < 0) {
+            srcTop = -pos.y;
+        } else {
+            dstTop = pos.y;
+        }
+
+        let srcLeft = 0;
+        let dstLeft = 0;
+        if (pos.x < 0) {
+            srcLeft = -pos.x;
+        } else {
+            dstLeft = pos.x;
+        }
+
+        // Actually do the placement...
+        for (let y = 0; y < mask.nrows - srcTop; ++y) {
+            for (let x = 0; x < mask.ncols - srcLeft; ++x) {
+                const srcX = x + srcLeft;
+                const srcY = y + srcTop;
+                const dstX = x + dstLeft;
+                const dstY = y + dstTop;
+
+                if (!mask[srcY * mask.ncols + srcX]) {
+                    continue;
+                }
+
+                if (dstX >= this.cells.ncols || dstY >= this.cells.nrows) {
+                    continue;
+                }
+
+                this.cells[dstY * this.cells.ncols + dstX] = reqIdx;
+            }
+        }
     }
 }
 
@@ -288,16 +329,18 @@ export function* solve(
         const part = parts[req.partIndex];
 
         for (const candidate of cands) {
-            const grid2 = grid.clone();
             if (
-                !grid2.place(
-                    candidate.mask,
-                    candidate.placement.loc.position,
-                    reqIdx
-                )
+                !grid.canPlace(candidate.mask, candidate.placement.loc.position)
             ) {
                 continue;
             }
+
+            const grid2 = grid.clone();
+            grid2.placeNoCheck(
+                candidate.mask,
+                candidate.placement.loc.position,
+                reqIdx
+            );
 
             if (
                 !placementIsAdmissible(
@@ -657,9 +700,10 @@ function placementPositionsForMask(
         for (let x = -mask.ncols + 1; x < mask.ncols; ++x) {
             const pos = { x, y };
             const grid = new Grid(gridSettings);
-            if (!grid.place(mask, pos, 0)) {
+            if (!grid.canPlace(mask, pos)) {
                 continue;
             }
+            grid.placeNoCheck(mask, pos, 0);
 
             if (
                 !placementIsAdmissible(grid, isSolid, 0, onCommandLine, bugged)
@@ -679,7 +723,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): (number | undefined)[] | null {
+): (number | undefined)[] {
     const grid = new Grid(gridSettings);
     const cells = new Array(grid.cells.length);
 
@@ -693,9 +737,7 @@ export function placeAll(
         for (let j = 0; j < placement.loc.rotation; ++j) {
             mask = array2d.rot90(mask);
         }
-        if (!grid.place(mask, placement.loc.position, i)) {
-            return null;
-        }
+        grid.placeNoCheck(mask, placement.loc.position, i);
     }
 
     for (let i = 0; i < grid.cells.length; ++i) {

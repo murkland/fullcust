@@ -827,14 +827,12 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
                             colors={data.colors}
                             requirements={problem.requirements}
                             gridSettings={gs}
-                            cells={
-                                placeAll(
-                                    data.parts,
-                                    problem.requirements,
-                                    solution as Solution,
-                                    gs
-                                )!
-                            }
+                            cells={placeAll(
+                                data.parts,
+                                problem.requirements,
+                                solution as Solution,
+                                gs
+                            )}
                         />
                     </div>
                 ))
