@@ -215,7 +215,6 @@ function PartSelector({
                             onChange({
                                 ...problem,
                                 requirements: [
-                                    ...problem.requirements,
                                     {
                                         partIndex,
                                         constraint: {
@@ -231,6 +230,7 @@ function PartSelector({
                                                 : null,
                                         },
                                     },
+                                    ...problem.requirements,
                                 ],
                             });
                         }}
