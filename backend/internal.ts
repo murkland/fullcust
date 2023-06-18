@@ -591,7 +591,7 @@ function candidatesForPart(
             candidates.push({ placement: { loc, compressed: true }, mask });
         }
         for (const { loc, mask } of placementLocationsAndMasksForMask(
-            part.compressedMask,
+            part.uncompressedMask,
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
