@@ -1,8 +1,21 @@
-import { Solution, solve } from "./solver";
+import { GridSettings, Part, Requirement, Solution, solve } from "./solver";
 
 let it: Iterator<Solution> | null = null;
 
-self.onmessage = function (e) {
+self.onmessage = function (
+    e: MessageEvent<
+        | { type: "next" }
+        | {
+              type: "init";
+              args: {
+                  parts: Part[];
+                  requirements: Requirement[];
+                  gridSettings: GridSettings;
+                  spinnableColors: boolean[];
+              };
+          }
+    >
+) {
     console.time(e.data.type);
     switch (e.data.type) {
         case "init": {
