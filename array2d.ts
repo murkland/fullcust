@@ -39,10 +39,10 @@ export function subarray<T>(
     ncols: number
 ) {
     const subarr2d = Array2D<T>(nrows, ncols);
-    for (let i = 0; i < nrows; ++i) {
-        for (let j = 0; j < ncols; ++j) {
-            subarr2d[i * ncols + j] =
-                arr2d[(top + i) * arr2d.ncols + (left + j)];
+    for (let y = 0; y < nrows; ++y) {
+        for (let x = 0; x < ncols; ++x) {
+            subarr2d[y * ncols + x] =
+                arr2d[(top + y) * arr2d.ncols + (left + x)];
         }
     }
     return subarr2d;
@@ -50,22 +50,22 @@ export function subarray<T>(
 
 export function transpose<T>(arr2d: Array2D<T>) {
     const transposed = Array2D<T>(arr2d.ncols, arr2d.nrows);
-    for (let i = 0; i < arr2d.nrows; ++i) {
-        for (let j = 0; j < arr2d.ncols; ++j) {
-            transposed[j * transposed.ncols + i] = arr2d[i * arr2d.ncols + j];
+    for (let y = 0; y < arr2d.nrows; ++y) {
+        for (let x = 0; x < arr2d.ncols; ++x) {
+            transposed[x * transposed.ncols + y] = arr2d[y * arr2d.ncols + x];
         }
     }
     return transposed;
 }
 
 export function flipRowsInplace<T>(arr2d: Array2D<T>) {
-    for (let i = 0; i < arr2d.nrows; ++i) {
+    for (let y = 0; y < arr2d.nrows; ++y) {
         const limit = Math.floor(arr2d.ncols / 2);
-        for (let j = 0; j < limit; ++j) {
-            let tmp = arr2d[i * arr2d.ncols + j];
-            arr2d[i * arr2d.ncols + j] =
-                arr2d[i * arr2d.ncols + (arr2d.ncols - j) - 1];
-            arr2d[i * arr2d.ncols + (arr2d.ncols - j) - 1] = tmp;
+        for (let x = 0; x < limit; ++x) {
+            let tmp = arr2d[y * arr2d.ncols + x];
+            arr2d[y * arr2d.ncols + x] =
+                arr2d[y * arr2d.ncols + (arr2d.ncols - x) - 1];
+            arr2d[y * arr2d.ncols + (arr2d.ncols - x) - 1] = tmp;
         }
     }
 }
@@ -77,18 +77,24 @@ export function rot90<T>(arr2d: Array2D<T>) {
 }
 
 export function equal<T>(l: Array2D<T>, r: Array2D<T>) {
-    return (
-        l.nrows == r.nrows && l.ncols == r.ncols && l.every((v, i) => v == r[i])
-    );
+    if (l.nrows != r.nrows || l.ncols != r.ncols) {
+        return false;
+    }
+    for (let i = 0; i < l.length; ++i) {
+        if (l[i] != r[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 export function pretty<T extends { toString(): string }>(
     arr2d: Array2D<T>
 ): string {
     const buf: string[] = [];
-    for (let i = 0; i < arr2d.nrows; ++i) {
-        for (let j = 0; j < arr2d.ncols; ++j) {
-            buf.push(arr2d[i * arr2d.ncols + j].toString());
+    for (let y = 0; y < arr2d.nrows; ++y) {
+        for (let x = 0; x < arr2d.ncols; ++x) {
+            buf.push(arr2d[y * arr2d.ncols + x].toString());
             buf.push("\t");
         }
         buf.push("\n");
@@ -96,14 +102,14 @@ export function pretty<T extends { toString(): string }>(
     return buf.join("");
 }
 
-export function row<T>(arr2d: Array2D<T>, i: number): T[] {
-    return arr2d.slice(i * arr2d.ncols, (i + 1) * arr2d.ncols);
+export function row<T>(arr2d: Array2D<T>, y: number): T[] {
+    return arr2d.slice(y * arr2d.ncols, (y + 1) * arr2d.ncols);
 }
 
-export function col<T>(arr2d: Array2D<T>, j: number): T[] {
+export function col<T>(arr2d: Array2D<T>, x: number): T[] {
     const col = new Array<T>(arr2d.nrows);
-    for (let i = 0; i < arr2d.nrows; ++i) {
-        col[i] = arr2d[i * arr2d.ncols + j];
+    for (let y = 0; y < arr2d.nrows; ++y) {
+        col[y] = arr2d[y * arr2d.ncols + x];
     }
     return col;
 }
