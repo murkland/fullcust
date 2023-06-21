@@ -517,9 +517,9 @@ function PartSelector({
     );
 }
 
-const CELL_SIZE = 48;
+const CELL_SIZE = 96;
 
-const BORDER_WIDTH = 4;
+const BORDER_WIDTH = 8;
 const BG_FILL_COLOR = "#202020";
 const BORDER_STROKE_COLOR = "#000000";
 
@@ -532,7 +532,7 @@ function drawGridView(
     gridSettings: GridSettings
 ) {
     ctx.lineWidth = BORDER_WIDTH;
-    ctx.font = "20px sans-serif";
+    ctx.font = `${20 * 2}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -723,6 +723,10 @@ function Navicust({
             ref={canvasRef}
             width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
             height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
+            style={{
+                width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
+                height: (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
+            }}
         />
     );
 }
@@ -737,8 +741,9 @@ const NavicustPlaceholder = React.forwardRef(
                 ref={ref}
                 className="d-flex justify-content-center align-items-center"
                 style={{
-                    width: gridSettings.width * CELL_SIZE + BORDER_WIDTH,
-                    height: gridSettings.height * CELL_SIZE + BORDER_WIDTH,
+                    width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
+                    height:
+                        (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
                 }}
             >
                 <div className="spinner-border" />
