@@ -674,24 +674,24 @@ function drawGridView(
             CELL_SIZE,
             0,
             (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2
+            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH
         );
         ctx.rect(
             CELL_SIZE,
             gridSettings.height * CELL_SIZE - CELL_SIZE,
             (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2
+            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH
         );
         ctx.rect(
             gridSettings.width * CELL_SIZE - CELL_SIZE,
             CELL_SIZE,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2,
+            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH,
             (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
         );
         ctx.rect(
             0,
             CELL_SIZE,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH / 2,
+            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH,
             (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
         );
         ctx.closePath();
