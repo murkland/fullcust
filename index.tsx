@@ -4,7 +4,14 @@ import { createRoot } from "react-dom/client";
 import { useInView } from "react-intersection-observer";
 
 import AsyncSolver from "./async-solver";
-import { convertParts, GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
+import {
+    convertParts,
+    GridSettings,
+    Part,
+    placeAll,
+    Requirement,
+    Solution,
+} from "./solver";
 
 const queryParams = new URLSearchParams(location.search);
 const game = queryParams.get("game") || "bn6";
@@ -863,6 +870,20 @@ function App() {
     const [problem, setProblem] = React.useState<Problem | null>(
         fromHashString(decodeURIComponent(window.location.hash.slice(1)))
     );
+
+    React.useEffect(() => {
+        const onHashChange = () => {
+            setProblem(
+                fromHashString(
+                    decodeURIComponent(window.location.hash.slice(1))
+                )
+            );
+        };
+        window.addEventListener("hashchange", onHashChange);
+        return () => {
+            window.removeEventListener("hashchange", onHashChange);
+        };
+    });
 
     React.useEffect(() => {
         (async () => {
