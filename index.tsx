@@ -646,7 +646,7 @@ function drawGridNumbers(
     cells: (number | null)[],
     gridSettings: GridSettings
 ) {
-    ctx.font = `${20 * 2}px sans-serif`;
+    ctx.font = `${BORDER_WIDTH * 5}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -867,20 +867,22 @@ function Navicust({
         );
     }, []);
 
+    const width = gridSettings.width * CELL_SIZE + BORDER_WIDTH;
+    const height = gridSettings.height * CELL_SIZE + BORDER_WIDTH;
+
     return (
         <div style={{ display: "flex", justifyContent: "center" }}>
             <div
                 style={{
                     position: "relative",
-                    width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
-                    height:
-                        (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
+                    width: width / 2,
+                    height: height / 2,
                 }}
             >
                 <canvas
                     ref={canvasRef}
-                    width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
-                    height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
+                    width={width}
+                    height={height}
                     style={{
                         width: "100%",
                         height: "100%",
@@ -888,8 +890,8 @@ function Navicust({
                 />
                 <canvas
                     ref={numbersCanvasRef}
-                    width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
-                    height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
+                    width={width}
+                    height={height}
                     style={{
                         pointerEvents: "none",
                         position: "absolute",
