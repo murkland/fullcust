@@ -551,8 +551,8 @@ function solutionIsAdmissible(
         const part = parts[req.partIndex];
 
         const bugLevel =
-            (placementDetail.outOfBounds ? 1 : 0) +
-            (part.isSolid === !placementDetail.onCommandLine ? 1 : 0) +
+            +placementDetail.outOfBounds +
+            +(part.isSolid === !placementDetail.onCommandLine) +
             placementDetail.adjacentSameColoredParts.size;
 
         if (
@@ -615,10 +615,9 @@ function placementIsAdmissible(
         return false;
     }
 
-    // It is not possible to know if a piece is definitively not bugged, as it must pass the coloring check later also.
-    const bugLevel =
-        (outOfBounds ? 1 : 0) + (isSolid === !placedOnCommandLine ? 1 : 0);
-
+    // It is not possible to tell if the bug level is less than the minimum bug level, because we might see more bugs later due to adjacent colors.
+    // So here, we only check if we have too many bugs.
+    const bugLevel = +outOfBounds + +(isSolid === !placedOnCommandLine);
     if (bugLevel > maxBugLevel) {
         return false;
     }
