@@ -637,7 +637,6 @@ function PartSelector({
 
 const CELL_SIZE = 96;
 
-const BORDER_WIDTH = CELL_SIZE / 12;
 const BG_FILL_COLOR = "#202020";
 const BORDER_STROKE_COLOR = "#000000";
 
@@ -646,7 +645,9 @@ function drawGridNumbers(
     cells: (number | null)[],
     gridSettings: GridSettings
 ) {
-    ctx.font = `${BORDER_WIDTH * 5}px sans-serif`;
+    const borderWidth = CELL_SIZE / 12;
+
+    ctx.font = `${borderWidth * 5}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -657,8 +658,8 @@ function drawGridNumbers(
                 continue;
             }
 
-            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
-            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+            const px = x * CELL_SIZE + borderWidth / 2;
+            const py = y * CELL_SIZE + borderWidth / 2;
 
             ctx.fillStyle = BORDER_STROKE_COLOR;
             ctx.fillText(
@@ -678,15 +679,17 @@ function drawGridView(
     cells: (number | null)[],
     gridSettings: GridSettings
 ) {
-    ctx.lineWidth = BORDER_WIDTH;
+    const borderWidth = CELL_SIZE / 12;
+
+    ctx.lineWidth = borderWidth;
 
     // First pass: draw background.
     ctx.strokeStyle = BORDER_STROKE_COLOR;
     ctx.fillStyle = BG_FILL_COLOR;
     for (let y = 0; y < gridSettings.height; ++y) {
         for (let x = 0; x < gridSettings.width; ++x) {
-            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
-            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+            const px = x * CELL_SIZE + borderWidth / 2;
+            const py = y * CELL_SIZE + borderWidth / 2;
 
             if (
                 gridSettings.hasOob &&
@@ -727,8 +730,8 @@ function drawGridView(
             const part = parts[requirement.partIndex];
             const color = COLORS[colors[part.color] as keyof typeof COLORS];
 
-            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
-            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+            const px = x * CELL_SIZE + borderWidth / 2;
+            const py = y * CELL_SIZE + borderWidth / 2;
 
             ctx.fillStyle = color.solid;
             ctx.strokeStyle = color.plus;
@@ -756,8 +759,8 @@ function drawGridView(
                 continue;
             }
 
-            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
-            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+            const px = x * CELL_SIZE + borderWidth / 2;
+            const py = y * CELL_SIZE + borderWidth / 2;
 
             // top
             if (y == 0 || cells[(y - 1) * gridSettings.width + x] != cell) {
@@ -789,17 +792,17 @@ function drawGridView(
 
     // Fourth pass: draw command line.
     const commandLinePy =
-        gridSettings.commandLineRow * CELL_SIZE + BORDER_WIDTH / 2;
+        gridSettings.commandLineRow * CELL_SIZE + borderWidth / 2;
     ctx.strokeRect(
         0,
         commandLinePy + (CELL_SIZE * 1.0) / 4.0,
-        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+        gridSettings.width * CELL_SIZE + borderWidth,
         1
     );
     ctx.strokeRect(
         0,
         commandLinePy + (CELL_SIZE * 3.0) / 4.0,
-        gridSettings.width * CELL_SIZE + BORDER_WIDTH,
+        gridSettings.width * CELL_SIZE + borderWidth,
         1
     );
 
@@ -810,26 +813,26 @@ function drawGridView(
         ctx.rect(
             CELL_SIZE,
             0,
-            (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH
+            (gridSettings.width - 2) * CELL_SIZE + borderWidth,
+            CELL_SIZE + borderWidth * 2 - borderWidth
         );
         ctx.rect(
             CELL_SIZE,
             gridSettings.height * CELL_SIZE - CELL_SIZE,
-            (gridSettings.width - 2) * CELL_SIZE + BORDER_WIDTH,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH
+            (gridSettings.width - 2) * CELL_SIZE + borderWidth,
+            CELL_SIZE + borderWidth * 2 - borderWidth
         );
         ctx.rect(
             gridSettings.width * CELL_SIZE - CELL_SIZE,
             CELL_SIZE,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH,
-            (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
+            CELL_SIZE + borderWidth * 2 - borderWidth,
+            (gridSettings.height - 2) * CELL_SIZE + borderWidth
         );
         ctx.rect(
             0,
             CELL_SIZE,
-            CELL_SIZE + BORDER_WIDTH * 2 - BORDER_WIDTH,
-            (gridSettings.height - 2) * CELL_SIZE + BORDER_WIDTH
+            CELL_SIZE + borderWidth * 2 - borderWidth,
+            (gridSettings.height - 2) * CELL_SIZE + borderWidth
         );
         ctx.closePath();
         ctx.fill();
@@ -867,8 +870,10 @@ function Navicust({
         );
     }, []);
 
-    const width = gridSettings.width * CELL_SIZE + BORDER_WIDTH;
-    const height = gridSettings.height * CELL_SIZE + BORDER_WIDTH;
+    const borderWidth = CELL_SIZE / 12;
+
+    const width = gridSettings.width * CELL_SIZE + borderWidth;
+    const height = gridSettings.height * CELL_SIZE + borderWidth;
 
     return (
         <div style={{ display: "flex", justifyContent: "center" }}>
@@ -911,14 +916,15 @@ const NavicustPlaceholder = React.forwardRef(
         { gridSettings }: { gridSettings: GridSettings },
         ref: React.Ref<HTMLDivElement>
     ) => {
+        const borderWidth = CELL_SIZE / 12;
+
         return (
             <div
                 ref={ref}
                 className="d-flex justify-content-center align-items-center"
                 style={{
-                    width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
-                    height:
-                        (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
+                    width: (gridSettings.width * CELL_SIZE + borderWidth) / 2,
+                    height: (gridSettings.height * CELL_SIZE + borderWidth) / 2,
                 }}
             >
                 <div className="spinner-border" />
