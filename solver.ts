@@ -16,7 +16,8 @@ export interface Part {
 export interface Constraint {
     compressed: boolean | null;
     onCommandLine: boolean | null;
-    bugged: boolean | null;
+    minBugLevel: number;
+    maxBugLevel: number;
 }
 
 export interface Requirement {
@@ -376,7 +377,7 @@ export function* solve(
                     part.isSolid,
                     reqIdx,
                     req.constraint.onCommandLine,
-                    req.constraint.bugged
+                    req.constraint.maxBugLevel
                 )
             ) {
                 continue;
@@ -455,7 +456,7 @@ function solutionIsAdmissible(
     interface PlacementDetail {
         outOfBounds: boolean;
         onCommandLine: boolean;
-        touchingSameColor: boolean;
+        adjacentSameColoredParts: Set<number>;
     }
 
     const placementDetails: PlacementDetail[] = new Array(requirements.length);
@@ -463,7 +464,7 @@ function solutionIsAdmissible(
         placementDetails[i] = {
             outOfBounds: false,
             onCommandLine: false,
-            touchingSameColor: false,
+            adjacentSameColoredParts: new Set(),
         };
     }
 
@@ -482,9 +483,9 @@ function solutionIsAdmissible(
             if (
                 grid.hasOob &&
                 (x === 0 ||
+                    y === 0 ||
                     x === grid.cells.ncols - 1 ||
-                    y === grid.cells.nrows - 1 ||
-                    x === grid.cells.ncols - 1)
+                    y === grid.cells.nrows - 1)
             ) {
                 placementDetail.outOfBounds = true;
             }
@@ -510,6 +511,21 @@ function solutionIsAdmissible(
                     continue;
                 }
 
+                // Ignore touching in out of bounds regions.
+                if (
+                    grid.hasOob &&
+                    (x == 0 ||
+                        y == 0 ||
+                        x == grid.cells.ncols - 1 ||
+                        y == grid.cells.nrows - 1) &&
+                    (x2 == 0 ||
+                        y2 == 0 ||
+                        x2 == grid.cells.ncols - 1 ||
+                        y2 == grid.cells.nrows - 1)
+                ) {
+                    continue;
+                }
+
                 const neigborReqIdx = grid.cells[y2 * grid.cells.ncols + x2];
                 if (neigborReqIdx < 0) {
                     continue;
@@ -522,7 +538,7 @@ function solutionIsAdmissible(
                     neigborReqIdx != reqIdx &&
                     neighborPart.color === part.color
                 ) {
-                    placementDetail.touchingSameColor = true;
+                    placementDetail.adjacentSameColoredParts.add(neigborReqIdx);
                     break;
                 }
             }
@@ -534,14 +550,14 @@ function solutionIsAdmissible(
         const req = requirements[i];
         const part = parts[req.partIndex];
 
-        const placementIsBugged =
-            placementDetail.outOfBounds ||
-            part.isSolid === !placementDetail.onCommandLine ||
-            placementDetail.touchingSameColor;
+        const bugLevel =
+            (placementDetail.outOfBounds ? 1 : 0) +
+            (part.isSolid === !placementDetail.onCommandLine ? 1 : 0) +
+            placementDetail.adjacentSameColoredParts.size;
 
         if (
-            req.constraint.bugged != null &&
-            req.constraint.bugged != placementIsBugged
+            bugLevel > req.constraint.maxBugLevel ||
+            bugLevel < req.constraint.minBugLevel
         ) {
             return false;
         }
@@ -555,7 +571,7 @@ function placementIsAdmissible(
     isSolid: boolean,
     reqIdx: number,
     onCommandLine: boolean | null,
-    bugged: boolean | null | null
+    maxBugLevel: number
 ) {
     // Mandatory admissibility: ensure not everything is out of bounds.
     if (grid.hasOob) {
@@ -600,8 +616,10 @@ function placementIsAdmissible(
     }
 
     // It is not possible to know if a piece is definitively not bugged, as it must pass the coloring check later also.
-    const placementIsBugged = outOfBounds || isSolid === !placedOnCommandLine;
-    if (bugged === false && placementIsBugged) {
+    const bugLevel =
+        (outOfBounds ? 1 : 0) + (isSolid === !placedOnCommandLine ? 1 : 0);
+
+    if (bugLevel > maxBugLevel) {
         return false;
     }
 
@@ -624,7 +642,7 @@ function candidatesForPart(
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
-            constraint.bugged,
+            constraint.maxBugLevel,
             spinnable
         )) {
             candidates.push({ placement: { loc, compressed: true }, mask });
@@ -635,7 +653,7 @@ function candidatesForPart(
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
-            constraint.bugged,
+            constraint.maxBugLevel,
             spinnable
         )) {
             candidates.push({ placement: { loc, compressed: false }, mask });
@@ -646,7 +664,7 @@ function candidatesForPart(
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
-            constraint.bugged,
+            constraint.maxBugLevel,
             spinnable
         )) {
             candidates.push({ placement: { loc, compressed: true }, mask });
@@ -656,7 +674,7 @@ function candidatesForPart(
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
-            constraint.bugged,
+            constraint.maxBugLevel,
             spinnable
         )) {
             candidates.push({ placement: { loc, compressed: false }, mask });
@@ -670,7 +688,7 @@ function placementLocationsAndMasksForMask(
     isSolid: boolean,
     gridSettings: GridSettings,
     onCommandLine: boolean | null,
-    bugged: boolean | null,
+    maxBugLevel: number,
     spinnable: boolean
 ) {
     const locations: { loc: Location; mask: array2d.Array2D<boolean> }[] = [];
@@ -679,7 +697,7 @@ function placementLocationsAndMasksForMask(
         isSolid,
         gridSettings,
         onCommandLine,
-        bugged
+        maxBugLevel
     )) {
         locations.push({ loc: { position, rotation: 0 }, mask });
     }
@@ -701,7 +719,7 @@ function placementLocationsAndMasksForMask(
                 isSolid,
                 gridSettings,
                 onCommandLine,
-                bugged
+                maxBugLevel
             )) {
                 locations.push({
                     loc: { position, rotation: i },
@@ -719,7 +737,7 @@ function placementPositionsForMask(
     isSolid: boolean,
     gridSettings: GridSettings,
     onCommandLine: boolean | null,
-    bugged: boolean | null
+    maxBugLevel: number
 ) {
     const positions: Position[] = [];
 
@@ -733,7 +751,13 @@ function placementPositionsForMask(
             grid.placeNoCheck(mask, pos, 0);
 
             if (
-                !placementIsAdmissible(grid, isSolid, 0, onCommandLine, bugged)
+                !placementIsAdmissible(
+                    grid,
+                    isSolid,
+                    0,
+                    onCommandLine,
+                    maxBugLevel
+                )
             ) {
                 continue;
             }

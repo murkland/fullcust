@@ -83,6 +83,7 @@ function fromHashString(s: string): Problem | null {
             i: number;
             c: number;
             b: number;
+            d: number;
             z: number;
         }[];
         s: number[];
@@ -93,7 +94,8 @@ function fromHashString(s: string): Problem | null {
             partIndex: cr.i,
             constraint: {
                 onCommandLine: cr.c === 1 ? true : cr.c === 0 ? false : null,
-                bugged: cr.b === 1 ? true : cr.b === 0 ? false : null,
+                maxBugLevel: cr.b === -1 ? Infinity : cr.b,
+                minBugLevel: cr.d,
                 compressed: cr.z === 1 ? true : cr.z === 0 ? false : null,
             },
         })),
@@ -113,11 +115,10 @@ function toHashString(problem: Problem): string {
                     ? 0
                     : -1,
             b:
-                req.constraint.bugged === true
-                    ? 1
-                    : req.constraint.bugged === false
-                    ? 0
-                    : -1,
+                req.constraint.maxBugLevel === Infinity
+                    ? -1
+                    : req.constraint.maxBugLevel,
+            d: req.constraint.minBugLevel,
             z:
                 req.constraint.compressed === true
                     ? 1
@@ -225,7 +226,8 @@ function PartSelector({
                                     {
                                         partIndex,
                                         constraint: {
-                                            bugged: null,
+                                            minBugLevel: 0,
+                                            maxBugLevel: Infinity,
                                             compressed: !isEqual(
                                                 part.compressedMask,
                                                 part.uncompressedMask
@@ -316,34 +318,132 @@ function PartSelector({
                                         />
                                     </div>
                                     <div className="col-xl">
-                                        <ConstraintDropdown
-                                            value={
-                                                requirement.constraint.bugged
-                                            }
-                                            title="cause bug・バグを引き起こす"
-                                            onChange={((
-                                                i: number,
-                                                v: boolean | null
-                                            ) => {
-                                                onChange({
-                                                    ...problem,
-                                                    requirements:
-                                                        problem.requirements.map(
-                                                            (r, j) =>
-                                                                i == j
-                                                                    ? {
-                                                                          ...r,
-                                                                          constraint:
-                                                                              {
-                                                                                  ...r.constraint,
-                                                                                  bugged: v,
-                                                                              },
-                                                                      }
-                                                                    : r
-                                                        ),
-                                                });
-                                            }).bind(null, i)}
-                                        />
+                                        <div className="input-group">
+                                            <div className="form-floating">
+                                                <input
+                                                    type="number"
+                                                    value={
+                                                        requirement.constraint
+                                                            .minBugLevel
+                                                    }
+                                                    className="form-control"
+                                                    onChange={(e) => {
+                                                        onChange({
+                                                            ...problem,
+                                                            requirements:
+                                                                problem.requirements.map(
+                                                                    (r, j) => {
+                                                                        if (
+                                                                            i !=
+                                                                            j
+                                                                        ) {
+                                                                            return r;
+                                                                        }
+                                                                        let v =
+                                                                            parseInt(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                                10
+                                                                            );
+                                                                        if (
+                                                                            v <
+                                                                            0
+                                                                        ) {
+                                                                            v = 0;
+                                                                        }
+                                                                        return {
+                                                                            ...r,
+                                                                            constraint:
+                                                                                {
+                                                                                    ...r.constraint,
+                                                                                    minBugLevel:
+                                                                                        v,
+                                                                                    maxBugLevel:
+                                                                                        Math.max(
+                                                                                            r
+                                                                                                .constraint
+                                                                                                .maxBugLevel,
+                                                                                            v
+                                                                                        ),
+                                                                                },
+                                                                        };
+                                                                    }
+                                                                ),
+                                                        });
+                                                    }}
+                                                />
+                                                <label>
+                                                    min bugs・最小バグ数
+                                                </label>
+                                            </div>
+                                            <div className="form-floating">
+                                                <input
+                                                    type="number"
+                                                    value={
+                                                        requirement.constraint
+                                                            .maxBugLevel
+                                                    }
+                                                    className="form-control"
+                                                    onChange={(e) => {
+                                                        onChange({
+                                                            ...problem,
+                                                            requirements:
+                                                                problem.requirements.map(
+                                                                    (r, j) => {
+                                                                        if (
+                                                                            i !=
+                                                                            j
+                                                                        ) {
+                                                                            return r;
+                                                                        }
+
+                                                                        let v =
+                                                                            e
+                                                                                .target
+                                                                                .value !=
+                                                                            ""
+                                                                                ? parseInt(
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
+                                                                                      10
+                                                                                  )
+                                                                                : Infinity;
+                                                                        if (
+                                                                            v <
+                                                                            0
+                                                                        ) {
+                                                                            v =
+                                                                                Infinity;
+                                                                        }
+
+                                                                        return {
+                                                                            ...r,
+                                                                            constraint:
+                                                                                {
+                                                                                    ...r.constraint,
+                                                                                    minBugLevel:
+                                                                                        Math.min(
+                                                                                            v,
+                                                                                            r
+                                                                                                .constraint
+                                                                                                .minBugLevel
+                                                                                        ),
+                                                                                    maxBugLevel:
+                                                                                        v,
+                                                                                },
+                                                                        };
+                                                                    }
+                                                                ),
+                                                        });
+                                                    }}
+                                                />
+                                                <label>
+                                                    max bugs・最大バグ数
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="col-xl">
                                         <ConstraintDropdown
