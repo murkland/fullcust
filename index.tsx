@@ -637,7 +637,7 @@ function PartSelector({
 
 const CELL_SIZE = 96;
 
-const BORDER_WIDTH = 8;
+const BORDER_WIDTH = CELL_SIZE / 12;
 const BG_FILL_COLOR = "#202020";
 const BORDER_STROKE_COLOR = "#000000";
 
