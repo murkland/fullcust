@@ -451,7 +451,7 @@ function requirementsAreAdmissible(
 interface PlacementDetail {
     outOfBounds: boolean;
     onCommandLine: boolean;
-    adjacentSameColoredParts: Set<number>;
+    adjacentSameColoredPlacements: Set<number>;
 }
 
 function resolvePlacementDetails(
@@ -464,7 +464,7 @@ function resolvePlacementDetails(
         placementDetails[i] = {
             outOfBounds: false,
             onCommandLine: false,
-            adjacentSameColoredParts: new Set(),
+            adjacentSameColoredPlacements: new Set(),
         };
     }
 
@@ -538,7 +538,9 @@ function resolvePlacementDetails(
                     neigborReqIdx != reqIdx &&
                     neighborPart.color === part.color
                 ) {
-                    placementDetail.adjacentSameColoredParts.add(neigborReqIdx);
+                    placementDetail.adjacentSameColoredPlacements.add(
+                        neigborReqIdx
+                    );
                     break;
                 }
             }
@@ -563,7 +565,7 @@ function solutionIsAdmissible(
         const bugLevel =
             +placementDetail.outOfBounds +
             +(part.isSolid === !placementDetail.onCommandLine) +
-            placementDetail.adjacentSameColoredParts.size;
+            placementDetail.adjacentSameColoredPlacements.size;
 
         if (
             bugLevel > req.constraint.maxBugLevel ||
