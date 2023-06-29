@@ -340,12 +340,17 @@ function PartSelector({
                                                                             return r;
                                                                         }
                                                                         let v =
-                                                                            parseInt(
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                                10
-                                                                            );
+                                                                            e
+                                                                                .target
+                                                                                .value !=
+                                                                            ""
+                                                                                ? parseInt(
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
+                                                                                      10
+                                                                                  )
+                                                                                : 0;
                                                                         if (
                                                                             v <
                                                                             0
