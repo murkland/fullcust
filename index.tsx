@@ -327,7 +327,10 @@ function PartSelector({
                                                             .minBugLevel
                                                     }
                                                     className="form-control"
-                                                    onChange={(e) => {
+                                                    onChange={((
+                                                        i: number,
+                                                        e: ChangeEvent<HTMLInputElement>
+                                                    ) => {
                                                         onChange({
                                                             ...problem,
                                                             requirements:
@@ -376,7 +379,7 @@ function PartSelector({
                                                                     }
                                                                 ),
                                                         });
-                                                    }}
+                                                    }).bind(null, i)}
                                                 />
                                                 <label>
                                                     min bugs・最小バグ数
@@ -390,7 +393,10 @@ function PartSelector({
                                                             .maxBugLevel
                                                     }
                                                     className="form-control"
-                                                    onChange={(e) => {
+                                                    onChange={((
+                                                        i: number,
+                                                        e: ChangeEvent<HTMLInputElement>
+                                                    ) => {
                                                         onChange({
                                                             ...problem,
                                                             requirements:
@@ -442,7 +448,7 @@ function PartSelector({
                                                                     }
                                                                 ),
                                                         });
-                                                    }}
+                                                    }).bind(null, i)}
                                                 />
                                                 <label>
                                                     max bugs・最大バグ数
