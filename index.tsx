@@ -646,7 +646,7 @@ function drawGridView(
     parts: Part[],
     colors: string[],
     requirements: Requirement[],
-    cells: (number | undefined)[],
+    cells: (number | null)[],
     gridSettings: GridSettings
 ) {
     ctx.lineWidth = BORDER_WIDTH;
@@ -827,7 +827,7 @@ function Navicust({
     parts: Part[];
     colors: string[];
     requirements: Requirement[];
-    cells: (number | undefined)[];
+    cells: (number | null)[];
     gridSettings: GridSettings;
 }) {
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);

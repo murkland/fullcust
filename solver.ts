@@ -448,17 +448,17 @@ function requirementsAreAdmissible(
     return true;
 }
 
-function solutionIsAdmissible(
+interface PlacementDetail {
+    outOfBounds: boolean;
+    onCommandLine: boolean;
+    adjacentSameColoredParts: Set<number>;
+}
+
+function resolvePlacementDetails(
     parts: Part[],
     requirements: Requirement[],
     grid: Grid
 ) {
-    interface PlacementDetail {
-        outOfBounds: boolean;
-        onCommandLine: boolean;
-        adjacentSameColoredParts: Set<number>;
-    }
-
     const placementDetails: PlacementDetail[] = new Array(requirements.length);
     for (let i = 0; i < requirements.length; ++i) {
         placementDetails[i] = {
@@ -545,7 +545,17 @@ function solutionIsAdmissible(
         }
     }
 
-    for (let i = 0; i < requirements.length; ++i) {
+    return placementDetails;
+}
+
+function solutionIsAdmissible(
+    parts: Part[],
+    requirements: Requirement[],
+    grid: Grid
+) {
+    const placementDetails = resolvePlacementDetails(parts, requirements, grid);
+
+    for (let i = 0; i < placementDetails.length; ++i) {
         const placementDetail = placementDetails[i];
         const req = requirements[i];
         const part = parts[req.partIndex];
@@ -773,7 +783,7 @@ export function placeAll(
     requirements: Requirement[],
     placements: Placement[],
     gridSettings: GridSettings
-): (number | undefined)[] {
+): (number | null)[] {
     const grid = new Grid(gridSettings);
     const cells = new Array(grid.cells.length);
 
@@ -791,7 +801,7 @@ export function placeAll(
     }
 
     for (let i = 0; i < grid.cells.length; ++i) {
-        cells[i] = grid.cells[i] < 0 ? undefined : grid.cells[i];
+        cells[i] = grid.cells[i] < 0 ? null : grid.cells[i];
     }
     return cells;
 }
