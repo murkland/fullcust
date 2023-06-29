@@ -641,6 +641,35 @@ const BORDER_WIDTH = 8;
 const BG_FILL_COLOR = "#202020";
 const BORDER_STROKE_COLOR = "#000000";
 
+function drawGridNumbers(
+    ctx: CanvasRenderingContext2D,
+    cells: (number | null)[],
+    gridSettings: GridSettings
+) {
+    ctx.font = `${20 * 2}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let y = 0; y < gridSettings.height; ++y) {
+        for (let x = 0; x < gridSettings.width; ++x) {
+            const cell = cells[y * gridSettings.width + x];
+            if (cell == null) {
+                continue;
+            }
+
+            const px = x * CELL_SIZE + BORDER_WIDTH / 2;
+            const py = y * CELL_SIZE + BORDER_WIDTH / 2;
+
+            ctx.fillStyle = BORDER_STROKE_COLOR;
+            ctx.fillText(
+                (cell + 1).toString(),
+                px + CELL_SIZE / 2,
+                py + CELL_SIZE / 2
+            );
+        }
+    }
+}
+
 function drawGridView(
     ctx: CanvasRenderingContext2D,
     parts: Part[],
@@ -650,9 +679,6 @@ function drawGridView(
     gridSettings: GridSettings
 ) {
     ctx.lineWidth = BORDER_WIDTH;
-    ctx.font = `${20 * 2}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
 
     // First pass: draw background.
     ctx.strokeStyle = BORDER_STROKE_COLOR;
@@ -717,13 +743,6 @@ function drawGridView(
                 ctx.strokeRect(px, py + CELL_SIZE / 2, CELL_SIZE, 1);
                 ctx.strokeRect(px + CELL_SIZE / 2, py, 1, CELL_SIZE);
             }
-
-            ctx.fillStyle = BORDER_STROKE_COLOR;
-            ctx.fillText(
-                (cell + 1).toString(),
-                px + CELL_SIZE / 2,
-                py + CELL_SIZE / 2
-            );
         }
     }
 
@@ -831,21 +850,57 @@ function Navicust({
     gridSettings: GridSettings;
 }) {
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+    const numbersCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
     React.useEffect(() => {
-        const ctx = canvasRef.current!.getContext("2d")!;
-        drawGridView(ctx, parts, colors, requirements, cells, gridSettings);
+        drawGridView(
+            canvasRef.current!.getContext("2d")!,
+            parts,
+            colors,
+            requirements,
+            cells,
+            gridSettings
+        );
+        drawGridNumbers(
+            numbersCanvasRef.current!.getContext("2d")!,
+            cells,
+            gridSettings
+        );
     }, []);
 
     return (
-        <canvas
-            ref={canvasRef}
-            width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
-            height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
-            style={{
-                width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
-                height: (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
-            }}
-        />
+        <div style={{ display: "flex", justifyContent: "center" }}>
+            <div
+                style={{
+                    position: "relative",
+                    width: (gridSettings.width * CELL_SIZE + BORDER_WIDTH) / 2,
+                    height:
+                        (gridSettings.height * CELL_SIZE + BORDER_WIDTH) / 2,
+                }}
+            >
+                <canvas
+                    ref={canvasRef}
+                    width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
+                    height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                    }}
+                />
+                <canvas
+                    ref={numbersCanvasRef}
+                    width={gridSettings.width * CELL_SIZE + BORDER_WIDTH}
+                    height={gridSettings.height * CELL_SIZE + BORDER_WIDTH}
+                    style={{
+                        pointerEvents: "none",
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                    }}
+                />
+            </div>
+        </div>
     );
 }
 
