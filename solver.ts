@@ -433,9 +433,9 @@ function requirementsAreAdmissible(
     for (const req of requirements) {
         const part = parts[req.partIndex];
         occupiedSquares += arrayCountTrue(
-            req.constraint.compressed === false
-                ? part.uncompressedMask
-                : part.compressedMask
+            req.constraint.compressed
+                ? part.compressedMask
+                : part.uncompressedMask
         );
     }
     const availableSquares =
