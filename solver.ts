@@ -644,12 +644,16 @@ function candidatesForPart(
     spinnable: boolean
 ): Candidate[] {
     const candidates: Candidate[] = [];
-    if (
+    const partMasks =
         constraint.compressed === true ||
         array2d.equal(part.compressedMask, part.uncompressedMask)
-    ) {
+            ? [part.compressedMask]
+            : constraint.compressed === false
+            ? [part.uncompressedMask]
+            : [part.compressedMask, part.uncompressedMask];
+    for (const partMask of partMasks) {
         for (const { loc, mask } of placementLocationsAndMasksForMask(
-            part.compressedMask,
+            partMask,
             part.isSolid,
             gridSettings,
             constraint.onCommandLine,
@@ -657,38 +661,6 @@ function candidatesForPart(
             spinnable
         )) {
             candidates.push({ placement: { loc, compressed: true }, mask });
-        }
-    } else if (constraint.compressed === false) {
-        for (const { loc, mask } of placementLocationsAndMasksForMask(
-            part.uncompressedMask,
-            part.isSolid,
-            gridSettings,
-            constraint.onCommandLine,
-            constraint.maxBugLevel,
-            spinnable
-        )) {
-            candidates.push({ placement: { loc, compressed: false }, mask });
-        }
-    } else {
-        for (const { loc, mask } of placementLocationsAndMasksForMask(
-            part.compressedMask,
-            part.isSolid,
-            gridSettings,
-            constraint.onCommandLine,
-            constraint.maxBugLevel,
-            spinnable
-        )) {
-            candidates.push({ placement: { loc, compressed: true }, mask });
-        }
-        for (const { loc, mask } of placementLocationsAndMasksForMask(
-            part.uncompressedMask,
-            part.isSolid,
-            gridSettings,
-            constraint.onCommandLine,
-            constraint.maxBugLevel,
-            spinnable
-        )) {
-            candidates.push({ placement: { loc, compressed: false }, mask });
         }
     }
     return candidates;
