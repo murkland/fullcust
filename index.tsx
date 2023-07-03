@@ -3,18 +3,51 @@ import React, { ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { useInView } from "react-intersection-observer";
 
+import * as array2d from "./array2d";
 import AsyncSolver from "./async-solver";
-import {
-    convertParts,
-    GridSettings,
-    Part,
-    placeAll,
-    Requirement,
-    Solution,
-} from "./solver";
+import { GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
 
 const queryParams = new URLSearchParams(location.search);
 const game = queryParams.get("game") || "bn6";
+
+export function convertParts(
+    rawParts: {
+        name: string;
+        nameJa: string;
+        isSolid: boolean;
+        color: number;
+        compressedMask: number[];
+        uncompressedMask: number[];
+    }[],
+    height: number,
+    width: number
+): (Part & { name: string; nameJa: string })[] {
+    return rawParts.map(
+        ({
+            name,
+            nameJa,
+            isSolid,
+            color,
+            compressedMask,
+            uncompressedMask,
+        }) => ({
+            name,
+            nameJa,
+            isSolid,
+            color,
+            compressedMask: array2d.from(
+                compressedMask.map((v) => !!v),
+                height,
+                width
+            ),
+            uncompressedMask: array2d.from(
+                uncompressedMask.map((v) => !!v),
+                height,
+                width
+            ),
+        })
+    );
+}
 
 const COLORS = {
     red: {
