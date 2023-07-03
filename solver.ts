@@ -289,16 +289,12 @@ function partsArr2DForGrid(
     return partsArr2d;
 }
 
-function to8BitString(arr: number[]) {
-    return String.fromCharCode(...arr.map((x) => x & 0xff));
-}
-
-function encodeMaskAs8BitString(mask: array2d.Array2D<boolean>): string {
-    return to8BitString([
+function encodeMaskToString(mask: array2d.Array2D<boolean>): string {
+    return String.fromCharCode(
         mask.nrows,
         mask.ncols,
-        ...arrayBooleanToNumber(mask),
-    ]);
+        ...arrayBooleanToNumber(mask)
+    );
 }
 
 export function* solve(
@@ -383,8 +379,8 @@ export function* solve(
                 continue;
             }
 
-            const gridByParts = to8BitString(
-                partsArr2DForGrid(grid2, requirements)
+            const gridByParts = String.fromCharCode(
+                ...partsArr2DForGrid(grid2, requirements)
             );
             if (visited.has(gridByParts)) {
                 continue;
@@ -687,11 +683,11 @@ function placementLocationsAndMasksForMask(
 
     if (spinnable) {
         const knownMasks = new Set();
-        knownMasks.add(encodeMaskAs8BitString(trim(mask)));
+        knownMasks.add(encodeMaskToString(trim(mask)));
 
         for (let i = 1; i < 4; ++i) {
             mask = array2d.rot90(mask);
-            const knownMask = encodeMaskAs8BitString(trim(mask));
+            const knownMask = encodeMaskToString(trim(mask));
             if (knownMasks.has(knownMask)) {
                 break;
             }
