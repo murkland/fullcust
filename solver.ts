@@ -49,10 +49,10 @@ export interface Placement {
 
 export type Solution = Placement[];
 
-const Cell = {
-    FORBIDDEN: -2,
-    EMPTY: -1,
-};
+enum Cell {
+    Forbidden = -2,
+    Empty = -1,
+}
 
 function arrayCountNumber(arr: number[], p: number): number {
     let n = 0;
@@ -137,19 +137,19 @@ class Grid {
         this.hasOob = settings.hasOob;
         this.commandLineRow = settings.commandLineRow;
         this.cells = array2d.full<number>(
-            Cell.EMPTY,
+            Cell.Empty,
             settings.height,
             settings.width
         );
         if (this.hasOob) {
-            this.cells[0 * settings.width + 0] = Cell.FORBIDDEN;
+            this.cells[0 * settings.width + 0] = Cell.Forbidden;
             this.cells[0 * settings.width + (settings.width - 1)] =
-                Cell.FORBIDDEN;
+                Cell.Forbidden;
             this.cells[
                 (settings.height - 1) * settings.width + (settings.width - 1)
-            ] = Cell.FORBIDDEN;
+            ] = Cell.Forbidden;
             this.cells[(settings.height - 1) * settings.width + 0] =
-                Cell.FORBIDDEN;
+                Cell.Forbidden;
         }
     }
 
@@ -215,7 +215,7 @@ class Grid {
                 }
 
                 const gridCellsIdx = dstY * this.cells.ncols + dstX;
-                if (this.cells[gridCellsIdx] != Cell.EMPTY) {
+                if (this.cells[gridCellsIdx] != Cell.Empty) {
                     return false;
                 }
             }
