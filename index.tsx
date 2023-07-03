@@ -10,7 +10,7 @@ import { GridSettings, Part, placeAll, Requirement, Solution } from "./solver";
 const queryParams = new URLSearchParams(location.search);
 const game = queryParams.get("game") || "bn6";
 
-export function convertParts(
+function convertParts(
     rawParts: {
         name: string;
         nameJa: string;
