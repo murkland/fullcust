@@ -641,11 +641,11 @@ function candidatesForPart(
 ): Candidate[] {
     const candidates: Candidate[] = [];
     const partMasks =
-        constraint.compressed === true ||
-        array2d.equal(part.compressedMask, part.uncompressedMask)
-            ? [{ mask: part.compressedMask, compressed: true }]
-            : constraint.compressed === false
+        constraint.compressed === false
             ? [{ mask: part.uncompressedMask, compressed: false }]
+            : constraint.compressed === true ||
+              array2d.equal(part.compressedMask, part.uncompressedMask)
+            ? [{ mask: part.compressedMask, compressed: true }]
             : [
                   { mask: part.compressedMask, compressed: true },
                   { mask: part.uncompressedMask, compressed: false },
