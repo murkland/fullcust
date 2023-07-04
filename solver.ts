@@ -643,7 +643,7 @@ function candidatesForPart(
     const partMasks =
         constraint.compressed === false
             ? [{ mask: part.uncompressedMask, compressed: false }]
-            : constraint.compressed === true ||
+            : constraint.compressed ||
               array2d.equal(part.compressedMask, part.uncompressedMask)
             ? [{ mask: part.compressedMask, compressed: true }]
             : [
