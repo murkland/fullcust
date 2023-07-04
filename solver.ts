@@ -643,11 +643,14 @@ function candidatesForPart(
     const partMasks =
         constraint.compressed === true ||
         array2d.equal(part.compressedMask, part.uncompressedMask)
-            ? [part.compressedMask]
+            ? [{ mask: part.compressedMask, compressed: true }]
             : constraint.compressed === false
-            ? [part.uncompressedMask]
-            : [part.compressedMask, part.uncompressedMask];
-    for (const partMask of partMasks) {
+            ? [{ mask: part.uncompressedMask, compressed: false }]
+            : [
+                  { mask: part.compressedMask, compressed: true },
+                  { mask: part.uncompressedMask, compressed: false },
+              ];
+    for (const { mask: partMask, compressed } of partMasks) {
         for (const { loc, mask } of placementLocationsAndMasksForMask(
             partMask,
             part.isSolid,
@@ -656,7 +659,7 @@ function candidatesForPart(
             constraint.maxBugLevel,
             spinnable
         )) {
-            candidates.push({ placement: { loc, compressed: true }, mask });
+            candidates.push({ placement: { loc, compressed }, mask });
         }
     }
     return candidates;
