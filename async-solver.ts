@@ -1,5 +1,7 @@
 import { GridSettings, Part, Requirement, Solution } from "./solver";
 
+import type { EventData } from "./worker";
+
 export default class AsyncSolver {
     worker: Worker;
     it: AsyncIterator<Solution>;
@@ -29,7 +31,7 @@ export default class AsyncSolver {
             worker.postMessage({
                 type: "init",
                 args: { parts, requirements, gridSettings, spinnableColors },
-            });
+            } as EventData);
 
             while (true) {
                 const solution = await new Promise<{
@@ -40,7 +42,7 @@ export default class AsyncSolver {
                         worker.removeEventListener("message", eh);
                         resolve(msg.data);
                     });
-                    worker.postMessage({ type: "next" });
+                    worker.postMessage({ type: "next" } as EventData);
                 });
                 if (solution.done) {
                     break;

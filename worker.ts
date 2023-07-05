@@ -1,21 +1,20 @@
 import { GridSettings, Part, Requirement, Solution, solve } from "./solver";
 
+export type EventData =
+    | { type: "next" }
+    | {
+          type: "init";
+          args: {
+              parts: Part[];
+              requirements: Requirement[];
+              gridSettings: GridSettings;
+              spinnableColors: boolean[];
+          };
+      };
+
 let it: Iterator<Solution> | null = null;
 
-self.onmessage = function (
-    e: MessageEvent<
-        | { type: "next" }
-        | {
-              type: "init";
-              args: {
-                  parts: Part[];
-                  requirements: Requirement[];
-                  gridSettings: GridSettings;
-                  spinnableColors: boolean[];
-              };
-          }
-    >
-) {
+self.onmessage = function (e: MessageEvent<EventData>) {
     console.time(e.data.type);
     switch (e.data.type) {
         case "init": {
