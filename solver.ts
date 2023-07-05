@@ -1,11 +1,5 @@
 import * as array2d from "./array2d";
 
-export interface Mask {
-    cells: boolean[];
-    height: number;
-    width: number;
-}
-
 export interface Part {
     isSolid: boolean;
     color: number;
