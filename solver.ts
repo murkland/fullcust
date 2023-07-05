@@ -593,10 +593,9 @@ function placementIsAdmissible(
     }
 
     // Optional admissibility: check if the block is appropriately in/out of bounds.
-    let outOfBounds = false;
-    if (grid.hasOob) {
-        outOfBounds =
-            arrayCountNumber(array2d.row(grid.cells, 0), reqIdx) > 0 ||
+    const outOfBounds =
+        grid.hasOob &&
+        (arrayCountNumber(array2d.row(grid.cells, 0), reqIdx) > 0 ||
             arrayCountNumber(array2d.col(grid.cells, 0), reqIdx) > 0 ||
             arrayCountNumber(
                 array2d.row(grid.cells, grid.cells.nrows - 1),
@@ -605,8 +604,7 @@ function placementIsAdmissible(
             arrayCountNumber(
                 array2d.col(grid.cells, grid.cells.ncols - 1),
                 reqIdx
-            ) > 0;
-    }
+            ) > 0);
 
     // Optional admissibility: check if the block is appropriately on/off the command line.
     const placedOnCommandLine =
