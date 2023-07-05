@@ -14,7 +14,6 @@ export default class AsyncSolver {
             type: "module",
         });
         this.worker = worker;
-        const args = { parts, requirements, gridSettings, spinnableColors };
 
         this.it = (async function* () {
             const ready = await new Promise<{ type: string }>((resolve) => {
@@ -29,7 +28,7 @@ export default class AsyncSolver {
 
             worker.postMessage({
                 type: "init",
-                args,
+                args: { parts, requirements, gridSettings, spinnableColors },
             });
 
             while (true) {
@@ -55,11 +54,7 @@ export default class AsyncSolver {
         return this.it.next();
     }
 
-    [Symbol.asyncIterator]() {
-        return this.it;
-    }
-
-    kill() {
+    terminate() {
         this.worker.terminate();
     }
 }

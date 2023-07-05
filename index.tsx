@@ -1010,7 +1010,7 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
         solverRef.current = solver;
 
         return () => {
-            solver.kill();
+            solver.terminate();
         };
     }, [problem, data, setSolutions, setDone]);
 
