@@ -1,6 +1,6 @@
 import { GridSettings, Part, Requirement, Solution } from "./solver";
 
-import type { EventData } from "./worker";
+import type { Request, Response } from "./worker";
 
 export default class AsyncSolver {
     worker: Worker;
@@ -18,36 +18,42 @@ export default class AsyncSolver {
         this.worker = worker;
 
         this.it = (async function* () {
-            const ready = await new Promise<{ type: string }>((resolve) => {
-                worker.addEventListener("message", function eh(msg) {
-                    worker.removeEventListener("message", eh);
-                    resolve(msg.data);
-                });
-            });
-            if (ready.type != "ready") {
-                throw "not ready";
+            {
+                const e = await new Promise<MessageEvent<Response>>(
+                    (resolve) => {
+                        worker.addEventListener("message", function eh(e) {
+                            worker.removeEventListener("message", eh);
+                            resolve(e);
+                        });
+                    }
+                );
+                if (e.data.type != "ready") {
+                    throw "not ready";
+                }
             }
 
             worker.postMessage({
                 type: "init",
                 args: { parts, requirements, gridSettings, spinnableColors },
-            } as EventData);
+            } as Request);
 
             while (true) {
-                const solution = await new Promise<{
-                    value: Solution;
-                    done: boolean;
-                }>((resolve) => {
-                    worker.addEventListener("message", function eh(msg) {
-                        worker.removeEventListener("message", eh);
-                        resolve(msg.data);
-                    });
-                    worker.postMessage({ type: "next" } as EventData);
-                });
-                if (solution.done) {
+                const e = await new Promise<MessageEvent<Response>>(
+                    (resolve) => {
+                        worker.addEventListener("message", function eh(e) {
+                            worker.removeEventListener("message", eh);
+                            resolve(e);
+                        });
+                        worker.postMessage({ type: "next" } as Request);
+                    }
+                );
+                if (e.data.type != "next") {
+                    throw "not ready";
+                }
+                if (e.data.done) {
                     break;
                 }
-                yield solution.value;
+                yield e.data.value;
             }
         })();
     }

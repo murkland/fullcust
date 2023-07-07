@@ -1,6 +1,6 @@
 import { GridSettings, Part, Requirement, Solution, solve } from "./solver";
 
-export type EventData =
+export type Request =
     | { type: "next" }
     | {
           type: "init";
@@ -12,9 +12,14 @@ export type EventData =
           };
       };
 
+export type Response =
+    | { type: "ready" }
+    | ({ type: "next" } & ({ done: true } | { done: false; value: Solution }))
+    | { type: "error"; reason: String };
+
 let it: Iterator<Solution> | null = null;
 
-self.onmessage = function (e: MessageEvent<EventData>) {
+self.onmessage = function (e: MessageEvent<Request>) {
     console.time(e.data.type);
     switch (e.data.type) {
         case "init": {
@@ -27,12 +32,19 @@ self.onmessage = function (e: MessageEvent<EventData>) {
         }
 
         case "next": {
-            const r = it!.next();
-            self.postMessage({ type: "next", ...r });
+            if (it === null) {
+                self.postMessage({
+                    type: "error",
+                    reason: "solver not initialized",
+                });
+                break;
+            }
+            const r = it.next();
+            self.postMessage({ type: "next", ...r } as Response);
             break;
         }
     }
     console.timeEnd(e.data.type);
 };
 
-self.postMessage({ type: "ready" });
+self.postMessage({ type: "ready" } as Response);
