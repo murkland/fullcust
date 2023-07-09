@@ -1115,7 +1115,7 @@ function App() {
         return () => {
             window.removeEventListener("hashchange", onHashChange);
         };
-    });
+    }, [setProblem]);
 
     React.useEffect(() => {
         (async () => {

@@ -10,11 +10,7 @@ function Array2D<T>(nrows: number, ncols: number): Array2D<T> {
     return arr2d;
 }
 
-export function from<T>(
-    data: Array<T>,
-    nrows: number,
-    ncols: number
-): Array2D<T> {
+export function from<T>(data: T[], nrows: number, ncols: number): Array2D<T> {
     const arr2d = [...data] as Array2D<T>;
     arr2d.nrows = nrows;
     arr2d.ncols = ncols;
@@ -62,7 +58,7 @@ export function flipRowsInplace<T>(arr2d: Array2D<T>) {
     for (let y = 0; y < arr2d.nrows; ++y) {
         const limit = Math.floor(arr2d.ncols / 2);
         for (let x = 0; x < limit; ++x) {
-            let tmp = arr2d[y * arr2d.ncols + x];
+            const tmp = arr2d[y * arr2d.ncols + x];
             arr2d[y * arr2d.ncols + x] =
                 arr2d[y * arr2d.ncols + (arr2d.ncols - x) - 1];
             arr2d[y * arr2d.ncols + (arr2d.ncols - x) - 1] = tmp;
@@ -88,7 +84,7 @@ export function equal<T>(l: Array2D<T>, r: Array2D<T>) {
     return true;
 }
 
-export function pretty<T extends { toString(): string }>(
+export function pretty<T extends { toString: () => string }>(
     arr2d: Array2D<T>
 ): string {
     const buf: string[] = [];
