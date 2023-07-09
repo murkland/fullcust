@@ -2,6 +2,7 @@ import isEqual from "lodash-es/isEqual";
 import React, { ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { useInView } from "react-intersection-observer";
+import { z } from "zod";
 
 import * as array2d from "./array2d";
 import AsyncSolver from "./async-solver";
@@ -106,22 +107,34 @@ const COLORS = {
     },
 };
 
+const HashStringProblem = z.object({
+    r: z.array(
+        // requirements
+        z.object({
+            i: z.number(), // partIndex
+            c: z.number(), // constraint.onCommandLine
+            b: z.number(), // constraint.maxBugLevel
+            d: z.number(), // constraint.minBugLevel
+            z: z.number(), // constraint.compressed
+        })
+    ),
+    s: z.array(z.number()), // spinnableColors,
+    x: z.number(), // expansionMemories
+});
+
 function fromHashString(s: string): Problem | null {
     if (s == "") {
         return null;
     }
 
-    const j = JSON.parse(s) as {
-        r: {
-            i: number;
-            c: number;
-            b: number;
-            d: number;
-            z: number;
-        }[];
-        s: number[];
-        x: number;
-    };
+    let j: z.infer<typeof HashStringProblem>;
+
+    try {
+        j = HashStringProblem.parse(JSON.parse(s));
+    } catch (e) {
+        return null;
+    }
+
     return {
         requirements: j.r.map((cr) => ({
             partIndex: cr.i,
@@ -161,7 +174,7 @@ function toHashString(problem: Problem): string {
         })),
         s: problem.spinnableColors.map((v) => (v ? 1 : 0)),
         x: problem.expansionMemories,
-    });
+    } as z.infer<typeof HashStringProblem>);
 }
 
 interface Data {
@@ -1072,19 +1085,31 @@ function Results({ problem, data }: { problem: Problem; data: Data }) {
     );
 }
 
+function hashToProblem() {
+    return fromHashString(decodeURIComponent(window.location.hash.slice(1)));
+}
+
 function App() {
     const [data, setData] = React.useState<Data | null>(null);
     const [problem, setProblem] = React.useState<Problem | null>(
-        fromHashString(decodeURIComponent(window.location.hash.slice(1)))
+        hashToProblem()
     );
 
     React.useEffect(() => {
+        if (data == null) {
+            return;
+        }
+        let p = problem;
+        if (p == null) {
+            p = emptyProblem(data);
+            setProblem(p);
+        }
+        window.location.hash = toHashString(p);
+    }, [data, problem, setProblem]);
+
+    React.useEffect(() => {
         const onHashChange = () => {
-            setProblem(
-                fromHashString(
-                    decodeURIComponent(window.location.hash.slice(1))
-                )
-            );
+            setProblem(hashToProblem());
         };
         window.addEventListener("hashchange", onHashChange);
         return () => {
@@ -1105,14 +1130,6 @@ function App() {
                     raw.gridSettings.width
                 ),
             };
-            setProblem((problem) => {
-                if (problem == null) {
-                    problem = emptyProblem(data);
-                    window.location.hash = toHashString(problem);
-                    return problem;
-                }
-                return problem;
-            });
             setData(data);
         })();
     }, [setProblem, setData]);
@@ -1152,7 +1169,6 @@ function App() {
                         data={data}
                         problem={problem}
                         onChange={(problem) => {
-                            window.location.hash = toHashString(problem);
                             setProblem(problem);
                         }}
                     />
